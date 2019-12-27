@@ -41,6 +41,14 @@ class Net:
     def neighbours(self, node):
         return np.where(self.adj[node])[0]
 
+    def closest(self, xy, ind=None):
+        vecs = self.xy[ind]-xy if type(ind)==np.ndarray else self.xy-xy
+        return np.argmin(np.linalg.norm(vecs, axis=1))
+
+    def xy_limits(self):
+        xy_min = np.min(self.xy, axis=0)
+        return xy_min, np.max(self.xy, axis=0)-xy_min
+
     def plot(self, ax, marker_style='s', margin=0.05):
         """Plots network's nodes and edges on a 2D plane."""
         # generate edge coordinates
@@ -104,7 +112,7 @@ def gen_grid(n, hor_len, ver_len):
     return Net(adj, np.transpose(xy))
 
 # the following code is for debug purposes only!
-net = gen_grid(50, 100, 100)
-fig, ax = plt.subplots()
-net.plot(ax)
-plt.show()
+#net = gen_grid(50, 100, 100)
+#fig, ax = plt.subplots()
+#net.plot(ax)
+#plt.show()
