@@ -39,13 +39,17 @@ class Net:
         self.widths[i, j] = np.linalg.norm(self.xy[i]-self.xy[j], axis=1)
 
     def neighbours(self, node):
+        """Returns a list of neighbouring node indexes given input node index."""
         return np.where(self.adj[node])[0]
 
     def closest(self, xy, ind=None):
+        """Returns index of a node closest to given X-Y coordinates."""
         vecs = self.xy[ind]-xy if type(ind)==np.ndarray else self.xy-xy
         return np.argmin(np.linalg.norm(vecs, axis=1))
 
     def xy_limits(self):
+        """Returns a bounding rectangle for node X-Y coordinates as a 2-tuple of 2x1
+        arrays containing lower-left corner coordinates, its width and height."""
         xy_min = np.min(self.xy, axis=0)
         return xy_min, np.max(self.xy, axis=0)-xy_min
 
@@ -110,9 +114,3 @@ def gen_grid(n, hor_len, ver_len):
     # generate node X-Y coordinates and construct a network
     xy = np.stack((np.tile(hor_len*np.arange(n), n), np.repeat(ver_len*np.arange(n), n)))
     return Net(adj, np.transpose(xy))
-
-# the following code is for debug purposes only!
-#net = gen_grid(50, 100, 100)
-#fig, ax = plt.subplots()
-#net.plot(ax)
-#plt.show()
