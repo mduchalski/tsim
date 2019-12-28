@@ -20,7 +20,7 @@ agent_params_type = ([
     # this is a route pointer, filled in C, here for alignment only
     ('_route', 'u8')])
 
-v0, s0, T, a, b = 15, 1.5, 3, 2, 1
+v0, s0, T, a, b = 15, 1.5, 3, 1, 2
 spacing = s0 + v0 * T
 
 def random_disjoint(breaks, end):
@@ -76,8 +76,6 @@ def gen_agents(net, n):
     for i in range(agents.size):
         agents[i], agents_routes[i], mask[i] = gen_agent(net, agents)
     agents, agents_routes = agents[mask], agents_routes[mask]
-    i = np.argsort(agents, order=('prev', 'next', 'x'))
-    agents, agents_routes = agents[i], agents_routes[i]
 
     # generate agents' other parameters all at once
     agents_params = np.empty(agents.size, dtype=agent_params_type)
@@ -123,7 +121,7 @@ def ic_tofile(net, agents, agents_params, agents_routes, filename):
         for agent_route in agents_routes:
             np.array(agent_route, dtype='i4').tofile(f)
 
-net = network.gen_grid(2, 300, 300)
+net = network.gen_grid(2, 200, 200)
 agents, agents_params, agents_routes = gen_agents(net, 10)
 ic_tofile(net, agents, agents_params, agents_routes, 'net.bin')
 fig, ax = plt.subplots()

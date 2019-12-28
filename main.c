@@ -35,10 +35,12 @@ void ic_fromfile(const char* name, double **weights, agent_type **ags,
     fread(*ags, sizeof(**ags), *ags_n, f);
     *ags_pars = malloc(*ags_n * sizeof(**ags_pars));
     fread(*ags_pars, sizeof(**ags_pars), *ags_n, f);
+
+    int route_bytes;
     for(int i = 0; i < *ags_n; i++) {
-        (*ags_pars)[i].route = malloc((*ags_pars)[i].route_len * sizeof(*(*ags_pars)->route));
-        fread((*ags_pars)[i].route, 
-            (*ags_pars)[i].route_len * sizeof(*(*ags_pars)->route), 1, f);
+        route_bytes = (*ags_pars)[i].route_len * sizeof(*(*ags_pars)->route);
+        (*ags_pars)[i].route = malloc(route_bytes);
+        fread((*ags_pars)[i].route, route_bytes, 1, f);
     }
 
     fclose(f);
@@ -52,40 +54,21 @@ bool agents_cmp(const agent_type a, const agent_type b)
     if(a.prev != b.prev)
         return a.prev < b.prev;
     else if(a.next != b.next)
-        return b.next < b.next;
+        return a.next < b.next;
     else return a.x < b.x;
 }
 
-int bst_closest(const agent_type to, const agent_type* ags, const int ags_n)
-{
-    int l = 0, r = ags_n-1, m;
-    while(l <= r) {
-        m = (l + r)/2;
-        if( agents_cmp(ags[m], to) ) {
-            if( !agents_cmp(ags[m+1], to) )
-                return m; 
-            l = m+1;
-        }
-        else {
-            if( agents_cmp(ags[m-1], to) )
-                return m; 
-            r = m-1;
-        }
-    }
-    return -1;
-}
 
-void fix_unsorted(agent_type* ags, const int ags_n, const int i)
-{
-    // restore order in an agent_type struct array where a single, specified
-    // element is out of place
-    agent_type tmp = ags[i];
-    int ni = bst_closest(tmp, ags, ags_n);
-    if(ni > i)
-        memcpy(ags + i, ags + i+1, (ni-i)*sizeof(*ags));
-    else
-        memcpy(ags + ni+1, ags + ni, (i-ni)*sizeof(*ags));
-    ags[ni] = tmp;
+void sort(agent_type *ags, const int ags_n) {
+    int j;
+    agent_type tmp;
+
+    for(int i = 2; i < ags_n; i++) {
+        tmp = ags[i];
+        for(j = i-1; j >= 0 && agents_cmp(tmp, ags[j]); j--)
+            ags[j+1] = ags[j];
+        ags[j+1] = tmp;
+    }
 }
 
 void _print_agents(const agent_type *ags, const agent_params_type *ags_pars,
@@ -98,9 +81,11 @@ void _print_agents(const agent_type *ags, const agent_params_type *ags_pars,
         printf("\tv0 = %.1f, s0 = %.1f, T = %.1f, a = %.1f, b = %.1f, route_len = %d\n\troute = ", 
             ags_pars[i].v0, ags_pars[i].s0, ags_pars[i].T,
             ags_pars[i].a, ags_pars[i].b, ags_pars[i].route_len);
-        for(int j = 0; j < ags_pars[i].route_len-1; j++)
+        for(int j = 0; j < ags_pars[i].route_len; j++)
             printf("%d, ", ags_pars[i].route[j]);
-        printf("%d\n", ags_pars[i].route[ags_pars[i].route_len-1]);
+        if(ags_pars[i].route_len)
+            printf("%d", ags_pars[i].route[ags_pars[i].route_len - 1]);
+        printf("\n");
     }
 }
 
@@ -114,10 +99,8 @@ int main(void)
     ic_fromfile("net.bin", &weights, &ags, &ags_pars, &nodes_n, &ags_n);
 
     _print_agents(ags, ags_pars, ags_n);
-    ags[0].prev = 3;
-    ags[0].next = 2;
-    fix_unsorted(ags, ags_n, 0);
-    printf("---\n");
+    sort(ags, ags_n);
+    printf("-----\n");
     _print_agents(ags, ags_pars, ags_n);
 
     free(weights);
