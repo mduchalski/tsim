@@ -8,16 +8,17 @@ agent_type = np.dtype([
     ('v', 'f8'),
     ('prev', 'i4'),
     ('next', 'i4'),
-    ('route_pos', 'i4')])
+    ('route_pos', 'i4'),
+    ('_params', 'u8')])
 
 agent_params_type = ([
+    ('uid', 'i4'),
     ('v0', 'f8'),
     ('s0', 'f8'),
     ('T', 'f8'),
     ('a', 'f8'),
     ('b', 'f8'),
     ('route_len', 'i4'),
-    # this is a route pointer, filled in C, here for alignment only
     ('_route', 'u8')])
 
 v0, s0, T, a, b = 15, 1.5, 3, 1, 2
@@ -121,8 +122,8 @@ def ic_tofile(net, agents, agents_params, agents_routes, filename):
         for agent_route in agents_routes:
             np.array(agent_route, dtype='i4').tofile(f)
 
-net = network.gen_grid(2, 200, 200)
-agents, agents_params, agents_routes = gen_agents(net, 10)
+net = network.gen_grid(5, 200, 200)
+agents, agents_params, agents_routes = gen_agents(net, 50)
 ic_tofile(net, agents, agents_params, agents_routes, 'net.bin')
 fig, ax = plt.subplots()
 net.plot(ax)
