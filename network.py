@@ -14,8 +14,8 @@ class Net:
         coordinates of nodes."""
         self.adj = adj
         self.xy = xy
-        self.widths = np.zeros(adj.shape)
-        self._update_widths()
+        self.weights = np.zeros(adj.shape)
+        self._update_weights()
 
     def __getitem__(self, key):
         """
@@ -27,16 +27,20 @@ class Net:
         if type(key) == int:
             return self.xy[key]
         elif type(key) == tuple and len(key) == 2:
-            return self.widths[ key[0], key[1] ]
+            return self.weights[ key[0], key[1] ]
 
-    def _update_widths(self):
+    def __len__(self):
+        """Returns the number of nodes in the network"""
+        return self.adj.shape[0]
+
+    def _update_weights(self):
         """
         (Re)calculates edge widths based on adjecency matrix and node X-Y
         coordinates. Should be called internally whenever network structure
         changes.
         """
         i, j = np.where(self.adj)
-        self.widths[i, j] = np.linalg.norm(self.xy[i]-self.xy[j], axis=1)
+        self.weights[i, j] = np.linalg.norm(self.xy[i]-self.xy[j], axis=1)
 
     def neighbours(self, node):
         """Returns a list of neighbouring node indexes given input node index."""
