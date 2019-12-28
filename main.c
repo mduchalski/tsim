@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
 
 typedef struct __attribute__((__packed__)) {
     double x;
@@ -43,15 +45,52 @@ void ic_fromfile(const char* name, double **weights, agent_type **ags,
     f = NULL;
 }
 
-int main(void)
+bool agents_cmp(const agent_type a, const agent_type b)
+{   
+    // comparison function for lexicographical sorting of agent_type struct arrays
+    // with order (prev, next, x)
+    if(a.prev != b.prev)
+        return a.prev < b.prev;
+    else if(a.next != b.next)
+        return b.next < b.next;
+    else return a.x < b.x;
+}
+
+int bst_closest(const agent_type to, const agent_type* ags, const int ags_n)
 {
-    int nodes_n, ags_n;
-    double *weights;
-    agent_type* ags;
-    agent_params_type* ags_pars;
+    int l = 0, r = ags_n-1, m;
+    while(l <= r) {
+        m = (l + r)/2;
+        if( agents_cmp(ags[m], to) ) {
+            if( !agents_cmp(ags[m+1], to) )
+                return m; 
+            l = m+1;
+        }
+        else {
+            if( agents_cmp(ags[m-1], to) )
+                return m; 
+            r = m-1;
+        }
+    }
+    return -1;
+}
 
-    ic_fromfile("net.bin", &weights, &ags, &ags_pars, &nodes_n, &ags_n);
+void fix_unsorted(agent_type* ags, const int ags_n, const int i)
+{
+    // restore order in an agent_type struct array where a single, specified
+    // element is out of place
+    agent_type tmp = ags[i];
+    int ni = bst_closest(tmp, ags, ags_n);
+    if(ni > i)
+        memcpy(ags + i, ags + i+1, (ni-i)*sizeof(*ags));
+    else
+        memcpy(ags + ni+1, ags + ni, (i-ni)*sizeof(*ags));
+    ags[ni] = tmp;
+}
 
+void _print_agents(const agent_type *ags, const agent_params_type *ags_pars,
+    const int ags_n)
+{
     for(int i = 0; i < ags_n; i++) {
         printf("agent #%d:\n", i);
         printf("\tx = %.1f, v = %.1f, prev = %d, next = %d\n", 
@@ -63,6 +102,23 @@ int main(void)
             printf("%d, ", ags_pars[i].route[j]);
         printf("%d\n", ags_pars[i].route[ags_pars[i].route_len-1]);
     }
+}
+
+int main(void)
+{
+    int nodes_n, ags_n;
+    double *weights;
+    agent_type* ags;
+    agent_params_type* ags_pars;
+
+    ic_fromfile("net.bin", &weights, &ags, &ags_pars, &nodes_n, &ags_n);
+
+    _print_agents(ags, ags_pars, ags_n);
+    ags[0].prev = 3;
+    ags[0].next = 2;
+    fix_unsorted(ags, ags_n, 0);
+    printf("---\n");
+    _print_agents(ags, ags_pars, ags_n);
 
     free(weights);
     weights = NULL;
