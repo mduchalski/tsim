@@ -19,52 +19,60 @@ typedef struct __attribute__((__packed__)) {
     int *route;
 } agent_params_type;
 
-int main(void)
-{
-    FILE *f = fopen("net.bin", "rb");
-    
-    int n, m;
-    double *weights;
-    agent_type* agents;
-    agent_params_type* agents_params;
 
-    fread(&n, sizeof(int), 1, f);
-    weights = malloc(n*n * sizeof(*weights));
-    fread(weights, sizeof(*weights), n*n, f);
-    fread(&m, sizeof(int), 1, f);
-    agents = malloc(m * sizeof(*agents));
-    fread(agents, sizeof(*agents), m, f);
-    agents_params = malloc(m * sizeof(*agents_params));
-    for(int i = 0; i < m; i++) {
-        fread(&agents_params[i],
-            sizeof(*agents_params)-sizeof((*agents_params).route), 1, f);
-        agents_params[i].route = malloc(
-            agents_params[i].route_len * sizeof(*agents_params->route));
-        fread(agents_params[i].route, 
-            agents_params[i].route_len * sizeof(*agents_params->route), 1, f);
+void ic_fromfile(const char* name, double **weights, agent_type **ags,
+    agent_params_type **ags_pars, int *nodes_n, int *ags_n)
+{   
+    FILE *f = fopen("net.bin", "rb");
+
+    fread(nodes_n, sizeof(int), 1, f);
+    *weights = malloc((*nodes_n)*(*nodes_n) * sizeof(**weights));
+    fread(*weights, sizeof(*weights), (*nodes_n)*(*nodes_n), f);
+    fread(ags_n, sizeof(int), 1, f);
+    *ags = malloc(*ags_n * sizeof(**ags));
+    fread(*ags, sizeof(**ags), *ags_n, f);
+    *ags_pars = malloc(*ags_n * sizeof(**ags_pars));
+    fread(*ags_pars, sizeof(**ags_pars), *ags_n, f);
+    for(int i = 0; i < *ags_n; i++) {
+        (*ags_pars)[i].route = malloc((*ags_pars)[i].route_len * sizeof(*(*ags_pars)->route));
+        fread((*ags_pars)[i].route, 
+            (*ags_pars)[i].route_len * sizeof(*(*ags_pars)->route), 1, f);
     }
 
-    for(int i = 0; i < m; i++) {
+    fclose(f);
+    f = NULL;
+}
+
+int main(void)
+{
+    int nodes_n, ags_n;
+    double *weights;
+    agent_type* ags;
+    agent_params_type* ags_pars;
+
+    ic_fromfile("net.bin", &weights, &ags, &ags_pars, &nodes_n, &ags_n);
+
+    for(int i = 0; i < ags_n; i++) {
         printf("agent #%d:\n", i);
         printf("\tx = %.1f, v = %.1f, prev = %d, next = %d\n", 
-            agents[i].x, agents[i].v, agents[i].prev, agents[i].next);
-        printf("\tv0 = %.1f, s0 = %.1f, T = %3.1f, a = %.1f, b= %.1f\n\troute = ", 
-            agents_params[i].v0, agents_params[i].s0, agents_params[i].T,
-            agents_params[i].a, agents_params[i].b);
-        for(int j = 0; j < agents_params[i].route_len-1; j++)
-            printf("%d, ", agents_params[i].route[j]);
-        printf("%d\n", agents_params[i].route[agents_params[i].route_len-1]);
+            ags[i].x, ags[i].v, ags[i].prev, ags[i].next);
+        printf("\tv0 = %.1f, s0 = %.1f, T = %.1f, a = %.1f, b = %.1f, route_len = %d\n\troute = ", 
+            ags_pars[i].v0, ags_pars[i].s0, ags_pars[i].T,
+            ags_pars[i].a, ags_pars[i].b, ags_pars[i].route_len);
+        for(int j = 0; j < ags_pars[i].route_len-1; j++)
+            printf("%d, ", ags_pars[i].route[j]);
+        printf("%d\n", ags_pars[i].route[ags_pars[i].route_len-1]);
     }
 
     free(weights);
     weights = NULL;
-    free(agents);
-    agents = NULL;
-    for(int i = 0; i < m; i++) {
-        free(agents_params[i].route);
-        agents_params[i].route = NULL;
+    free(ags);
+    ags = NULL;
+    for(int i = 0; i < ags_n; i++) {
+        free(ags_pars[i].route);
+        ags_pars[i].route = NULL;
     }
-    fclose(f);
-    f = NULL;
+    free(ags_pars);
+    ags_pars = NULL;
     return 0;
 }

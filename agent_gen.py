@@ -4,10 +4,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import namedtuple
 
-agent_type = np.dtype([('x', 'f8'), ('v', 'f8'), ('prev', 'i4'), ('next', 'i4'), ('route_pos', 'i4')])
-agent_static_type = namedtuple('agent_static_type', 'v0 s0 T a b route_len route')
-base = agent_static_type(15, 1.5, 2, 1, 2, 0, None)
-min_dist = base.s0 + base.v0*base.T
+agent_type = np.dtype([
+    ('x', 'f8'),
+    ('v', 'f8'),
+    ('prev', 'i4'),
+    ('next', 'i4'),
+    ('route_pos', 'i4')])
+
+agent_params_type = ([
+    ('v0', 'f8'),
+    ('s0', 'f8'),
+    ('T', 'f8'),
+    ('a', 'f8'),
+    ('b', 'f8'),
+    ('route_len', 'i4'),
+    # this is a route alignment pointer, filled in C, here for alignment only
+    ('_route', 'u8')])
+
+v0, s0, T, a, b = 15, 1.5, 3, 2, 1
+spacing = s0 + v0 * T
 
 def random_disjoint(breaks, end):
     """
@@ -33,9 +48,8 @@ def random_disjoint(breaks, end):
 
 def gen_agent(net, agents):
     """Generates a complete definition for of a single agent."""
-    agent = np.full(1, -1, dtype=agent_type)
-    #agent_params = np.zeros(1, dtype=agent_params_type)
-
+    agent = np.empty(1, dtype=agent_type)
+    
     # generate reference x, y coordinates and select closest pair of nodes as the edge
     xy_min, xy_size = net.xy_limits()
     xy_start = xy_min + xy_size*np.random.random_sample(2)
@@ -43,36 +57,43 @@ def gen_agent(net, agents):
     neighs = net.neighbours(agent['prev'][0])
     agent['next'] = neighs[net.closest(xy_start, neighs)] 
 
-    # generate agent parameters and speed
-    agr = np.random.normal(1.0, 0.1) # (*) make configurable
-    route = net.shortest_path(agent['next'][0], net.closest(
-        xy_min + xy_size*np.random.random_sample(2)))[1:]
-    agent_meta = agent_static_type(agr*base.v0, (2-agr)*base.s0, (2-agr)*base.T, 
-        agr*base.a, agr*base.b, len(route), route)
-    agent['v'] = np.random.normal(1.0, 0.2)*agent_meta.v0
-
     # find all existing agents on this edge and generate a suitable position for this agent
     on_edge = agents['x'][(agents['prev'] == agent['prev']) & (agents['next'] == agent['next'])]
-    breaks = np.transpose(np.stack((on_edge - min_dist, on_edge + min_dist)))
-    agent['x'] = random_disjoint(breaks, net[ agent['prev'][0], agent['next'][0] ]-min_dist)
+    breaks = np.transpose(np.stack((on_edge - spacing, on_edge + spacing)))
+    agent['x'] = random_disjoint(breaks, net[ agent['prev'][0], agent['next'][0] ] - spacing)
 
-    return agent, agent_meta
+    valid = agent['x'] > 0
+    agent_route = net.shortest_path(agent['next'][0], net.closest(xy_min +
+        xy_size*np.random.random_sample(2)))[1:] if valid else None
+    
+    return agent, agent_route, valid
 
 def gen_agents(net, n):
+    """Generates full definitions (state, parameters and routes) for n-random agents."""
+    # generate agents' positions and routes sequentially
     agents = np.empty(n, dtype=agent_type)
-    agents_static = np.empty(n, dtype=object)
-
+    agents_routes = np.empty(n, dtype=object)
+    mask = np.zeros(n, dtype=bool)
     for i in range(agents.size):
-        agents[i], agents_static[i] = gen_agent(net, agents)
+        agents[i], agents_routes[i], mask[i] = gen_agent(net, agents)
+    agents, agents_routes = agents[mask], agents_routes[mask]
+    
+    # generate agents' other parameters all at once
+    agents_params = np.empty(agents.size, dtype=agent_params_type)
+    agents_params['route_len'] = np.array([len(route) for route in agents_routes])
+    
+    agr = np.random.normal(1.0, 0.1, agents.size)
+    agents_params['v0'] = v0 * agr
+    agents_params['s0'] = s0 * (2-agr)
+    agents_params['T'] = T * (2-agr)
+    agents_params['a'] = a * agr
+    agents_params['b'] = b * agr
+    agents['v'] = np.random.normal(1.0, 0.2, agents.size) * agents_params['v0']
 
-        sys.stdout.write('\r{:.1f}%'.format(100*i/n))
-        sys.stdout.flush()
-
-    mask = agents['x'] > 0
-    return agents[mask], agents_static[mask]
+    return agents, agents_params, agents_routes
 
 def plot_agents(ax, net, agents):
-    """Plots agents in 2D space given the network they're"""
+    """Plots agents in 2D space."""
     # calculate X-Y agents' positions
     prev, next = agents['prev'], agents['next']
     vecs = net.xy[next]-net.xy[prev]
@@ -90,20 +111,20 @@ def plot_agents(ax, net, agents):
     ax.plot(xy_agents[right_mask, 0], xy_agents[right_mask, 1], 'r>', alpha=.8)
     ax.plot(xy_agents[left_mask, 0], xy_agents[left_mask, 1], 'r<', alpha=.8)
 
-def ic_tofile(net, agents, agents_params, filename):
+def ic_tofile(net, agents, agents_params, agents_routes, filename):
+    """Outputs initial conditions to a binary file."""
     with open(filename, 'wb') as f:
         np.array([len(net)], dtype='i4').tofile(f)
         net.weights.tofile(f)
         np.array([len(agents)], dtype='i4').tofile(f)
         agents.tofile(f)
-        for agent_params in agents_params:
-            np.array(agent_params[:-2], dtype='f8').tofile(f)
-            np.array([agent_params.route_len], dtype='i4').tofile(f)
-            np.array(agent_params.route, dtype='i4').tofile(f)
+        agents_params.tofile(f)
+        for agent_route in agents_routes:
+            np.array(agent_route, dtype='i4').tofile(f)
 
-net = network.gen_grid(5, 300, 300)
-agents, agents_params = gen_agents(net, 500)
-ic_tofile(net, agents, agents_params, 'net.bin')
+net = network.gen_grid(100, 300, 300)
+agents, agents_params, agents_routes = gen_agents(net, 50000)
+ic_tofile(net, agents, agents_params, agents_routes, 'net.bin')
 fig, ax = plt.subplots()
 net.plot(ax)
 plot_agents(ax, net, agents)
