@@ -65,7 +65,8 @@ def gen_agent(net, agents):
     valid = agent['x'] > 0
     agent_route = net.shortest_path(agent['next'][0], net.closest(xy_min +
         xy_size*np.random.random_sample(2)))[1:] if valid else None
-    
+    agent['route_pos'] = 0
+
     return agent, agent_route, valid
 
 def gen_agents(net, n):
@@ -81,7 +82,8 @@ def gen_agents(net, n):
     # generate agents' other parameters all at once
     agents_params = np.empty(agents.size, dtype=agent_params_type)
     agents_params['route_len'] = np.array([len(route) for route in agents_routes])
-    
+    agents_params['uid'] = np.arange(agents.size)
+
     agr = np.random.normal(1.0, 0.1, agents.size)
     agents_params['v0'] = v0 * agr
     agents_params['s0'] = s0 * (2-agr)

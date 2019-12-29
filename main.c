@@ -23,19 +23,24 @@ typedef struct __attribute__((__packed__)) {
     agent_params_type *params;
 } agent_type;
 
-void ic_fromfile(const char* name, double **weights, agent_type **ags, int *nodes_n, int *ags_n)
+void ic_fromfile(const char* name, double ***weights, agent_type **ags, int *nodes_n, int *ags_n)
 {
     FILE *f = fopen("net.bin", "rb");
 
     fread(nodes_n, sizeof(int), 1, f);
-    *weights = malloc((*nodes_n)*(*nodes_n) * sizeof(**weights));
-    fread(*weights, sizeof(*weights), (*nodes_n)*(*nodes_n), f);
+    
+    *weights = malloc((*nodes_n) * sizeof(**weights));
+    (*weights)[0] = malloc((*nodes_n)*(*nodes_n) * sizeof(***weights));
+    for(int i = 1; i < *nodes_n; i++)
+        (*weights)[i] = (*weights)[0] + (*nodes_n)*i;
+    fread((*weights)[0], sizeof(***weights), (*nodes_n)*(*nodes_n), f);
+
     fread(ags_n, sizeof(int), 1, f);
     *ags = malloc(*ags_n * sizeof(**ags));
     fread(*ags, sizeof(**ags), *ags_n, f);
+    
     agent_params_type *ags_pars = malloc(*ags_n * sizeof(agent_params_type));
     fread(ags_pars, sizeof(*ags_pars), *ags_n, f);
-
     int route_bytes;
     for(int i = 0; i < *ags_n; i++) {
         route_bytes = ags_pars[i].route_len * sizeof(*ags_pars->route);
@@ -59,8 +64,7 @@ bool agents_cmp(const agent_type a, const agent_type b)
     else return a.x < b.x;
 }
 
-
-void sort(agent_type *ags, const int ags_n) {
+void sort_agents(agent_type *ags, const int ags_n) {
     int j;
     agent_type tmp;
 
@@ -72,45 +76,66 @@ void sort(agent_type *ags, const int ags_n) {
     }
 }
 
+void _print_agent(const agent_type ag)
+{
+    printf("\tx = %.1f, v = %.1f, prev = %d, next = %d, route_pos = %d\n"
+        "\tuid = %d, v0 = %.1f, s0 = %.1f, T = %.1f, a = %.1f, b = %.1f, route_len" 
+        " = %d\n\troute = ", ag.x, ag.v, ag.prev, ag.next, ag.route_pos,
+        ag.params->uid, ag.params->v0, ag.params->s0, ag.params->T, ag.params->a,
+        ag.params->b, ag.params->route_len);
+        for(int i = 0; i < ag.params->route_len - 1; i++)
+            printf("%d, ", ag.params->route[i]);
+        if(ag.params->route_len)
+            printf("%d", ag.params->route[ag.params->route_len - 1]);
+        printf("\n");
+}
+
 void _print_agents(const agent_type *ags, const int ags_n)
 {
     for(int i = 0; i < ags_n; i++) {
         printf("agent #%d:\n", i);
-        printf("\tx = %.1f, v = %.1f, prev = %d, next = %d\n", 
-            ags[i].x, ags[i].v, ags[i].prev, ags[i].next);
-        printf("\tv0 = %.1f, s0 = %.1f, T = %.1f, a = %.1f, b = %.1f, route_len = %d\n\troute = ", 
-            ags[i].params->v0, ags[i].params->s0, ags[i].params->T,
-            ags[i].params->a, ags[i].params->b, ags[i].params->route_len);
-        for(int j = 0; j < ags[i].params->route_len - 1; j++)
-            printf("%d, ", ags[i].params->route[j]);
-        if(ags[i].params->route_len)
-            printf("%d", ags[i].params->route[ags[i].params->route_len - 1]);
-        printf("\n");
+        _print_agent(ags[i]);
     }
+}
+
+void dealloc_agents(agent_type *ags, const int ags_n)
+{
+    int zero_uid = 0;
+    for(int i = 0; i < ags_n; i++) {
+        if(ags[i].params->uid == 0)
+            zero_uid = i;
+
+        free(ags[i].params->route);
+        ags[i].params->route = NULL;
+    }
+    free(ags[zero_uid].params);
+    ags[zero_uid].params = NULL;
+    free(ags);
+    ags = NULL;
 }
 
 int main(void)
 {
     int nodes_n, ags_n;
-    double *weights;
+    double **weights;
     agent_type* ags;
 
     ic_fromfile("net.bin", &weights, &ags, &nodes_n, &ags_n);
 
-    _print_agents(ags, ags_n);
-    //sort(ags, ags_n);
-    //printf("-----\n");
-    //_print_agents(ags, ags_pars, ags_n);
-
-    free(weights);
-    weights = NULL;
-    for(int i = 0; i < ags_n; i++) {
-        free(ags[i].params->route);
-        ags[i].params->route = NULL;
+    for(int i = 0; i < nodes_n; i++) {
+        for(int j = 0; j < nodes_n; j++)
+            printf("%5.0f", weights[i][j]);
+        printf("\n");
     }
-    free(ags[0].params);
-    ags[0].params = NULL;
-    free(ags);
-    ags = NULL;
+
+    _print_agents(ags, ags_n);
+    sort_agents(ags, ags_n);
+    printf("-----\n");
+    _print_agents(ags, ags_n);
+
+    free(weights[0]);
+    weights[0] = NULL;
+    dealloc_agents(ags, ags_n);
+    
     return 0;
 }
