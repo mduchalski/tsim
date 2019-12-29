@@ -27,7 +27,7 @@ typedef struct __attribute__((__packed__)) {
 
 void ic_fromfile(const char* name, double ***weights, agent_type **ags, int *nodes_n, int *ags_n)
 {
-    FILE *f = fopen("net.bin", "rb");
+    FILE *f = fopen(name, "rb");
 
     fread(nodes_n, sizeof(int), 1, f);
 
@@ -79,7 +79,7 @@ void sort_agents(agent_type *ags, const int ags_n) {
     int j;
     agent_type tmp;
 
-    for(int i = 2; i < ags_n; i++) {
+    for(int i = 1; i < ags_n; i++) {
         tmp = ags[i];
         for(j = i-1; j >= 0 && agents_cmp(tmp, ags[j]); j--)
             ags[j+1] = ags[j];
@@ -161,7 +161,7 @@ void agent_sim(const int i, agent_type *ags, const agent_type *ags_prev, const i
 
     double x_ahead, v_ahead;
     if(i+1 < ags_n && ags_prev[i+1].next == ags_prev[i].next && 
-        ags_prev[i+1].prev == ags_prev[i+1].prev) {
+        ags_prev[i].prev == ags_prev[i+1].prev) {
         // there is an agent ahead on the same edge
         x_ahead = ags_prev[i+1].x;
         v_ahead = ags_prev[i+1].v;
@@ -193,16 +193,16 @@ void agent_sim(const int i, agent_type *ags, const agent_type *ags_prev, const i
     ags[i].x += t_step*ags[i].v;
     ags[i].v += t_step*idm_accel(ags[i], x_ahead, v_ahead);
     
-    if(ags[i].x > weights[ags_prev[i].prev][ags_prev[i].next]) {
-        ags[i].x -= weights[ags_prev[i].prev][ags_prev[i].next];
-        if(ags[i].route_pos == ags[i].params->route_len+1)
+    if(ags[i].x > weights[ags_prev[i].prev][ags_prev[i].next])
+        if(ags_prev[i].params->route_len == 0 || 
+            ags_prev[i].route_pos == ags_prev[i].params->route_len)
             ags[i].next = -1;
         else {
+            ags[i].x -= weights[ags_prev[i].prev][ags_prev[i].next];
             ags[i].prev = ags[i].next;
             ags[i].next = ags[i].params->route[ags[i].route_pos];
             ags[i].route_pos++;
         }
-    }
 }
 
 
@@ -212,16 +212,22 @@ void sim_cpu(const double t_step, const double t_end,
     agent_type *ags = malloc(ags_n * sizeof(*ags));
     agent_type *ags_prev = malloc(ags_n * sizeof(*ags_prev));
     memcpy(ags, ags_ic, ags_n * sizeof(*ags_ic));
-    sort_agents(ags, ags_n);
+    FILE *f = fopen("results.bin", "wb"); // debug only
 
-    for(double t = 0.0; t < t_end; t += t_step) {
-        _print_agents(ags, ags_n);
-        memcpy(ags_prev, ags, ags_n * sizeof(*ags));
-        for(int i = 0; i < ags_n; i++)
-            agent_sim(i, ags, ags_prev, ags_n, weights, t_step);
+    int steps = (int)floor(t_end / t_step);
+    fwrite(&steps, sizeof(steps), 1, f);
+    fwrite(&ags_n, sizeof(ags_n), 1, f);
+    for(int i = 0; i < steps; i++) {
         sort_agents(ags, ags_n);
+        fwrite(ags, ags_n * sizeof(*ags), 1, f); // debug only
+        memcpy(ags_prev, ags, ags_n * sizeof(*ags));
+        for(int j = 0; j < ags_n; j++)
+            agent_sim(j, ags, ags_prev, ags_n, weights, t_step);
+        
     }
 
+    fclose(f);
+    f = NULL;
     free(ags);
     ags = NULL;
     free(ags_prev);
@@ -234,8 +240,8 @@ int main(void)
     int nodes_n, ags_n;
     double **weights;
     agent_type* ags_ic;
-    ic_fromfile("net.bin", &weights, &ags_ic, &nodes_n, &ags_n);
-    sim_cpu(0.2, 30, ags_ic, weights, ags_n);
+    ic_fromfile("ic.bin", &weights, &ags_ic, &nodes_n, &ags_n);
+    sim_cpu(0.02, 30, ags_ic, weights, ags_n);
     dealloc_agents(ags_ic, ags_n);
     return 0;
 }

@@ -2,6 +2,7 @@ import sys
 import network
 import numpy as np
 import matplotlib.pyplot as plt
+#from result_vis import plot_agents
 
 agent_type = np.dtype([
     ('x', 'f8'),
@@ -11,7 +12,7 @@ agent_type = np.dtype([
     ('route_pos', 'i4'),
     ('_params', 'u8')])
 
-agent_params_type = ([
+agent_params_type = np.dtype([
     ('uid', 'i4'),
     ('v0', 'f8'),
     ('s0', 'f8'),
@@ -84,34 +85,15 @@ def gen_agents(net, n):
     agents_params['route_len'] = np.array([len(route) for route in agents_routes])
     agents_params['uid'] = np.arange(agents.size)
 
-    agr = np.random.normal(1.0, 0.1, agents.size)
+    agr = np.random.normal(1.0, 0.05, agents.size)
     agents_params['v0'] = v0 * agr
     agents_params['s0'] = s0 * (2-agr)
     agents_params['T'] = T * (2-agr)
     agents_params['a'] = a * agr
     agents_params['b'] = b * agr
-    agents['v'] = np.random.normal(1.0, 0.2, agents.size) * agents_params['v0']
+    agents['v'] = np.random.normal(1.0, 0.1, agents.size) * agents_params['v0']
 
     return agents, agents_params, agents_routes
-
-def plot_agents(ax, net, agents):
-    """Plots agents in 2D space."""
-    # calculate X-Y agents' positions
-    prev, next = agents['prev'], agents['next']
-    vecs = net.xy[next]-net.xy[prev]
-    xy_agents = net.xy[prev] + (agents['x'] / net[prev, next])[:, np.newaxis]*vecs
-
-    # separate agents by direction of movement (approximated by four directions)
-    angles = np.arctan2(vecs[:, 1], vecs[:, 0]) 
-    up_mask = (angles <= 3*np.pi/4) & (angles > np.pi/4)
-    down_mask = (angles <= -np.pi/4) & (angles > -3*np.pi/4)
-    right_mask = (angles <= np.pi/4) & (angles > -np.pi/4)
-    left_mask = (angles < -3*np.pi/4) | (angles >= 3*np.pi/4)
-    
-    ax.plot(xy_agents[up_mask, 0], xy_agents[up_mask, 1], 'r^', alpha=.8)
-    ax.plot(xy_agents[down_mask, 0], xy_agents[down_mask, 1], 'rv', alpha=.8)
-    ax.plot(xy_agents[right_mask, 0], xy_agents[right_mask, 1], 'r>', alpha=.8)
-    ax.plot(xy_agents[left_mask, 0], xy_agents[left_mask, 1], 'r<', alpha=.8)
 
 def ic_tofile(net, agents, agents_params, agents_routes, filename):
     """Outputs initial conditions to a binary file."""
@@ -124,10 +106,7 @@ def ic_tofile(net, agents, agents_params, agents_routes, filename):
         for agent_route in agents_routes:
             np.array(agent_route, dtype='i4').tofile(f)
 
-net = network.gen_grid(5, 200, 200)
-agents, agents_params, agents_routes = gen_agents(net, 50)
-ic_tofile(net, agents, agents_params, agents_routes, 'net.bin')
-fig, ax = plt.subplots()
-net.plot(ax)
-plot_agents(ax, net, agents)
-plt.show()
+net = network.gen_grid(3, 200, 200)
+agents, agents_params, agents_routes = gen_agents(net, 20)
+ic_tofile(net, agents, agents_params, agents_routes, 'ic.bin')
+net.save('net')

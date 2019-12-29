@@ -57,6 +57,9 @@ class Net:
         xy_min = np.min(self.xy, axis=0)
         return xy_min, np.max(self.xy, axis=0)-xy_min
 
+    def save(self, filename):
+        np.savez(filename, adj=self.adj, xy=self.xy)
+
     def plot(self, ax, marker_style='s', margin=0.05):
         """Plots network's nodes and edges on a 2D plane."""
         # generate edge coordinates
@@ -98,6 +101,10 @@ class Net:
         while path[0] in came_from.keys():
             path = [ came_from[path[0]] ] + path
         return path[1:]
+
+def load(filename):
+    loaded = np.load(filename + '.npz')
+    return Net(loaded['adj'], loaded['xy'])
 
 def gen_grid(n, hor_len, ver_len):
     """Generates a 2D grid/lattice network with a given number of nodes/side
