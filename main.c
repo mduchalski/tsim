@@ -55,6 +55,26 @@ void ic_fromfile(const char* name, double ***weights, agent_type **ags, int *nod
     f = NULL;
 }
 
+const int MAX_PREDECESSORS = 4;
+
+int find_pred(int *pred, const int node, double** weights, const int nodes_n)
+{
+    int i = 0;
+    for(int j = 0; j < nodes_n; j++)
+        if(weights[j][node])
+            pred[i++] = j;
+    return i;
+}
+
+bool simple_inter(const double t, const int from, const int through,
+    const int to, double** weights, const int nodes_n)
+{
+    int pred[MAX_PREDECESSORS];
+    int pred_n = find_pred(pred, through, weights, nodes_n);
+    double offset = 0.0, timeout = 10.0; // debug only!
+    return (int)( fmod(t+offset, (double)pred_n*timeout) / timeout ) == from;
+}
+
 bool agents_cmp(const agent_type a, const agent_type b)
 {   
     // comparison function for lexicographical sorting of agent_type struct arrays
@@ -109,8 +129,6 @@ void _print_agents(const agent_type *ags, const int ags_n)
     }
 }
 
-
-
 void dealloc_agents(agent_type *ags, const int ags_n)
 {
     int zero_uid = 0;
@@ -150,12 +168,14 @@ int first_on_next_edge(const int i, const agent_type *ags, const int ags_n) {
 }
 
 double idm_accel(const agent_type ag, double x_ahead, double v_ahead) {
-    double ss = ag.params->s0 + ag.v*(ag.v-v_ahead) / (2*sqrt(ag.params->a*ag.params->b));
+    double ss = ag.params->s0 + ag.v*ag.params->T + ag.v*(ag.v-v_ahead)/(2*sqrt(ag.params->a*ag.params->b));
     return ag.params->a*(1 - pow(ag.v/ag.params->v0, 4) - pow(ss/(x_ahead-ag.x), 2));
 }
 
-void agent_sim(const int i, agent_type *ags, const agent_type *ags_prev, const int ags_n,
-    double **weights, double t_step) {
+const double DECELL_MAX = 10.0;
+
+void agent_sim(const double t, const int i, agent_type *ags, const agent_type *ags_prev,
+    const int ags_n, double **weights, const int nodes_n, const double t_step) {
     if(ags_prev[i].next < 0)
         return; // agent is inactive
 
@@ -171,7 +191,8 @@ void agent_sim(const int i, agent_type *ags, const agent_type *ags_prev, const i
         x_ahead = DBL_MAX;
         v_ahead = 0.0;
     }
-    else if(true) { // for now, all intersections are open to everyone
+    else if (true) {
+    //else if(simple_inter(t, ags_prev[i].prev, ags_prev[i].next, -1, weights, nodes_n)) { // for now, all intersections are open to everyone
         // there is a open intersection ahead of an agent
         int j = first_on_next_edge(i, ags_prev, ags_n);
         if(j != -1) {
@@ -190,10 +211,15 @@ void agent_sim(const int i, agent_type *ags, const agent_type *ags_prev, const i
         v_ahead = 0;
     }
 
-    ags[i].x += t_step*ags[i].v;
-    ags[i].v += t_step*idm_accel(ags[i], x_ahead, v_ahead);
-    
-    if(ags[i].x > weights[ags_prev[i].prev][ags_prev[i].next])
+    ags[i].x += t_step*ags_prev[i].v;
+    double accel = idm_accel(ags_prev[i], x_ahead, v_ahead);
+    if(accel < -DECELL_MAX)
+        accel = -DECELL_MAX;
+    ags[i].v += t_step*accel;
+    if(ags[i].v < 0.0)
+        ags[i].v = 0.0;
+
+    if(ags[i].x > weights[ags_prev[i].prev][ags_prev[i].next]) {
         if(ags_prev[i].params->route_len == 0 || 
             ags_prev[i].route_pos == ags_prev[i].params->route_len)
             ags[i].next = -1;
@@ -203,11 +229,12 @@ void agent_sim(const int i, agent_type *ags, const agent_type *ags_prev, const i
             ags[i].next = ags[i].params->route[ags[i].route_pos];
             ags[i].route_pos++;
         }
+    }
 }
 
 
-void sim_cpu(const double t_step, const double t_end,
-    const agent_type *ags_ic, double **weights, const int ags_n) {
+void sim_cpu(const double t_step, const double t_end, const agent_type *ags_ic,
+    double **weights, const int nodes_n, const int ags_n) {
     
     agent_type *ags = malloc(ags_n * sizeof(*ags));
     agent_type *ags_prev = malloc(ags_n * sizeof(*ags_prev));
@@ -222,8 +249,7 @@ void sim_cpu(const double t_step, const double t_end,
         fwrite(ags, ags_n * sizeof(*ags), 1, f); // debug only
         memcpy(ags_prev, ags, ags_n * sizeof(*ags));
         for(int j = 0; j < ags_n; j++)
-            agent_sim(j, ags, ags_prev, ags_n, weights, t_step);
-        
+            agent_sim((double)i*t_step, j, ags, ags_prev, ags_n, weights, nodes_n, t_step);
     }
 
     fclose(f);
@@ -241,7 +267,7 @@ int main(void)
     double **weights;
     agent_type* ags_ic;
     ic_fromfile("ic.bin", &weights, &ags_ic, &nodes_n, &ags_n);
-    sim_cpu(0.02, 30, ags_ic, weights, ags_n);
+    sim_cpu(0.01, 120, ags_ic, weights, nodes_n, ags_n);
     dealloc_agents(ags_ic, ags_n);
     return 0;
 }
