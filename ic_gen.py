@@ -1,9 +1,7 @@
-import sys
 import json
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from enum import Enum
 
 import network
 
@@ -110,14 +108,22 @@ def ic_tofile(net, agents, agents_params, agents_routes, filename):
         for agent_route in agents_routes:
             np.array(agent_route, dtype='i4').tofile(f)
 
-# load generation parameters from JSON file
-with open('params.json') as config_file:
+# process commandline arguments and load the configuration file
+parser = argparse.ArgumentParser(description='Generate initial conditions for traffic simulation.')
+parser.add_argument('-g', action='store_true', help='launch in graphical mode (not yet supported)')
+parser.add_argument('-c', metavar='CONFIG', default='config.json', help='configuration filename (default: config.json)')
+parser.add_argument('-oi', metavar='OUTIC', default='ic.bin', help='output initial conditions filename (default: ic.bin)')
+parser.add_argument('-on', metavar='OUTNET', default='net', help='output network filename, saved as an *.npz file (default: net)')
+args = parser.parse_args()
+
+with open(args.c) as config_file:
     config_text = config_file.read()
 config = json.loads(config_text)['config']
 
+# generate and save initial conditions
 net = network.gen_grid(config['network']['size'], 
     config['network']['unit_width'],
     config['network']['unit_height'])
 agents, agents_params, agents_routes = gen_agents(net, config['agents'])
-ic_tofile(net, agents, agents_params, agents_routes, 'ic.bin')
-net.save('net')
+ic_tofile(net, agents, agents_params, agents_routes, args.oi)
+net.save(args.on)
