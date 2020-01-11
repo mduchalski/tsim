@@ -1,8 +1,14 @@
 import sys
-import network
+import json
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-#from result_vis import plot_agents
+from enum import Enum
+
+import network
+
+v0, s0, T, a, b = 15, 1.5, 3, 1, 2
+spacing = s0 + v0 * T
 
 agent_type = np.dtype([
     ('x', 'f8'),
@@ -21,9 +27,6 @@ agent_params_type = np.dtype([
     ('b', 'f8'),
     ('route_len', 'i4'),
     ('_route', 'u8')])
-
-v0, s0, T, a, b = 15, 1.5, 3, 1, 2
-spacing = s0 + v0 * T
 
 def random_disjoint(breaks, end):
     """
@@ -70,12 +73,12 @@ def gen_agent(net, agents):
 
     return agent, agent_route, valid
 
-def gen_agents(net, n):
+def gen_agents(net, config):
     """Generates full definitions (state, parameters and routes) for n-random agents."""
     # generate agents' positions and routes sequentially
-    agents = np.empty(n, dtype=agent_type)
-    agents_routes = np.empty(n, dtype=object)
-    mask = np.zeros(n, dtype=bool)
+    agents = np.empty(config['attempts'], dtype=agent_type)
+    agents_routes = np.empty_like(agents, dtype=object)
+    mask = np.zeros_like(agents, dtype=bool)
     for i in range(agents.size):
         agents[i], agents_routes[i], mask[i] = gen_agent(net, agents)
     agents, agents_routes = agents[mask], agents_routes[mask]
@@ -85,14 +88,15 @@ def gen_agents(net, n):
     agents_params['route_len'] = np.array([len(route) for route in agents_routes])
     agents_params['uid'] = np.arange(agents.size)
 
-    agr = np.random.normal(1.0, 0.05, agents.size)
-    agents_params['v0'] = v0 * agr
-    agents_params['s0'] = s0 * (2-agr)
-    agents_params['T'] = T * (2-agr)
-    agents_params['a'] = a * agr
-    agents_params['b'] = b * agr
-    agents['v'] = np.random.normal(1.0, 0.1, agents.size) * agents_params['v0']
-
+    agr = np.random.normal(1.0, config['agressive_stdev'], agents.size)
+    mean = config['idm_mean_params']
+    agents_params['v0'] = mean['v0'] * agr
+    agents_params['s0'] = mean['s0'] * (2-agr)
+    agents_params['T']  = mean['T']  * (2-agr)
+    agents_params['a']  = mean['a']  * agr
+    agents_params['b']  = mean['b']  * agr
+    agents['v'] = agents_params['v0']
+    agents['v'] *= np.random.normal(1.0, config['speed_from_v0_stdev'], agents.size)
     return agents, agents_params, agents_routes
 
 def ic_tofile(net, agents, agents_params, agents_routes, filename):
@@ -106,7 +110,14 @@ def ic_tofile(net, agents, agents_params, agents_routes, filename):
         for agent_route in agents_routes:
             np.array(agent_route, dtype='i4').tofile(f)
 
-net = network.gen_grid(3, 200, 200)
-agents, agents_params, agents_routes = gen_agents(net, 20)
+# load generation parameters from JSON file
+with open('params.json') as config_file:
+    config_text = config_file.read()
+config = json.loads(config_text)['config']
+
+net = network.gen_grid(config['network']['size'], 
+    config['network']['unit_width'],
+    config['network']['unit_height'])
+agents, agents_params, agents_routes = gen_agents(net, config['agents'])
 ic_tofile(net, agents, agents_params, agents_routes, 'ic.bin')
 net.save('net')
