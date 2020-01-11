@@ -4,6 +4,7 @@
 #include <string.h>
 #include <float.h>
 #include <math.h>
+#include <unistd.h>
 
 typedef struct __attribute__((__packed__)) {
     int uid;
@@ -86,12 +87,12 @@ bool agents_cmp(const agent_type a, const agent_type b)
     else return a.x < b.x;
 }
 
-int agents_edge_cmp(const agent_type a, const agent_type b)
+bool agents_edge_cmp(const agent_type a, const agent_type b)
 {
     if(a.prev != b.prev)
-        return a.prev < b.prev ? -1 : 1;
+        return a.prev < b.prev;
     else if(a.next != b.next)
-        return a.next < b.next ? -1 : 1;
+        return a.next < b.next;
     else return 0;
 }
 
@@ -145,26 +146,21 @@ void dealloc_agents(agent_type *ags, const int ags_n)
     ags = NULL;
 }
 
-int find_on_edge(const int prev, const int next, const agent_type *ags, const int ags_n) {
-    agent_type t;
-    t.prev = prev;
-    t.next = next;
-    int l = 0, r = ags_n-1, m, cmp;
-    while(l <= r) {
-        m = (l+r)/2;
-        cmp = agents_edge_cmp(ags[m], t);
-        if(cmp < 0)      l = m+1;
-        else if(cmp > 0) r = m-1;
-        else return m;
-    }
-    return -1;
-}
-
 int first_on_next_edge(const int i, const agent_type *ags, const int ags_n) {
-    int j;
-    for(j = find_on_edge(ags[i].next, ags[i].params->route[ags[i].route_pos], ags, ags_n);
-        j > 0 && !agents_edge_cmp(ags[j], ags[j+1]); j--);
-    return j;
+    agent_type t;
+    t.prev = ags[i].next;
+    t.next = ags[i].params->route[ags[i].route_pos];
+    int l = 0, r = ags_n, m;
+    while (l < r) {
+        m = (l+r)/2;
+        if(agents_edge_cmp(ags[m], t))
+            l = m+1;
+        else r = m;
+    }
+    
+    if(ags[l].prev == t.prev && ags[l].next == t.next)
+        return l;
+    return -1;
 }
 
 double idm_accel(const agent_type ag, double x_ahead, double v_ahead) {
@@ -234,19 +230,18 @@ void agent_sim(const double t, const int i, agent_type *ags, const agent_type *a
 
 
 void sim_cpu(const double t_step, const double t_end, const agent_type *ags_ic,
-    double **weights, const int nodes_n, const int ags_n) {
-    
+    double **weights, const int nodes_n, const int ags_n, const char* out_filename) {
     agent_type *ags = malloc(ags_n * sizeof(*ags));
     agent_type *ags_prev = malloc(ags_n * sizeof(*ags_prev));
     memcpy(ags, ags_ic, ags_n * sizeof(*ags_ic));
-    FILE *f = fopen("results.bin", "wb"); // debug only
+    FILE *f = fopen(out_filename, "wb");
 
     int steps = (int)floor(t_end / t_step);
     fwrite(&steps, sizeof(steps), 1, f);
     fwrite(&ags_n, sizeof(ags_n), 1, f);
     for(int i = 0; i < steps; i++) {
         sort_agents(ags, ags_n);
-        fwrite(ags, ags_n * sizeof(*ags), 1, f); // debug only
+        fwrite(ags, ags_n * sizeof(*ags), 1, f);
         memcpy(ags_prev, ags, ags_n * sizeof(*ags));
         for(int j = 0; j < ags_n; j++)
             agent_sim((double)i*t_step, j, ags, ags_prev, ags_n, weights, nodes_n, t_step);
@@ -261,13 +256,43 @@ void sim_cpu(const double t_step, const double t_end, const agent_type *ags_ic,
 }
 
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    char *in_filename = "ic.bin", *out_filename = "res.bin";
+    double t_step = 0.1, t_final = 10.0;
+    char opt;
+    while((opt = getopt(argc, argv, "i:o:s:f:h")) != -1) {
+        switch(opt) {
+            case 's':
+                t_step = atof(optarg);
+                break;
+            case 'f':
+                t_final = atof(optarg);
+                break;
+            case 'i':
+                in_filename = strdup(optarg);
+                break;
+            case 'o':
+                out_filename = strdup(optarg);
+                break;
+            case 'h':
+                printf("Usage: %s [-h] [-i IN] [-o OUT] [-s STEP] [-f FINAL]\n\n"
+                    "Optional parameters:\n"
+                    "-h:        displays this message\n"
+                    "-i IN:     initial conditions filename      (default: ic.bin)\n"
+                    "-o OUT:    simulation output filename       (default: res.bin)\n"
+                    "-s STEP:   simulation step in seconds       (default: 0.1)\n"
+                    "-f FINAL:  simulation stop time in seconds  (default: 10.0)\n", argv[0]);
+                return 0;
+        }
+    }
+
     int nodes_n, ags_n;
     double **weights;
     agent_type* ags_ic;
-    ic_fromfile("ic.bin", &weights, &ags_ic, &nodes_n, &ags_n);
-    sim_cpu(0.01, 120, ags_ic, weights, nodes_n, ags_n);
+    ic_fromfile(in_filename, &weights, &ags_ic, &nodes_n, &ags_n);
+    sim_cpu(t_step, t_final, ags_ic, weights, nodes_n, ags_n, out_filename);
+    
     dealloc_agents(ags_ic, ags_n);
     return 0;
 }
