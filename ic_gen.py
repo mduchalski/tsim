@@ -2,19 +2,13 @@ import json
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 
 import network
+from _common import agent_type, plot_agents
 
 v0, s0, T, a, b = 15, 1.5, 3, 1, 2
 spacing = s0 + v0 * T
-
-agent_type = np.dtype([
-    ('x', 'f8'),
-    ('v', 'f8'),
-    ('prev', 'i4'),
-    ('next', 'i4'),
-    ('route_pos', 'i4'),
-    ('_params', 'u8')])
 
 agent_params_type = np.dtype([
     ('uid', 'i4'),
@@ -48,82 +42,122 @@ def random_disjoint(breaks, end):
     x = (end - widths[-1]) * np.random.random_sample()
     return x + widths[np.argmax(x + widths < starts)]
 
-def gen_agent(net, agents):
-    """Generates a complete definition for of a single agent."""
-    agent = np.empty(1, dtype=agent_type)
-    
-    # generate reference x, y coordinates and select closest pair of nodes as the edge
-    xy_min, xy_size = net.xy_limits()
-    xy_start = xy_min + xy_size*np.random.random_sample(2)
-    agent['prev'] = net.closest(xy_start)
-    neighs = net.neighbours(agent['prev'][0])
-    agent['next'] = neighs[net.closest(xy_start, neighs)] 
+class Generator:
+    def __init__(self, config_filename):
+        self.config_filename = config_filename
+        self.load_config()
+        self.update()
 
-    # find all existing agents on this edge and generate a suitable position for this agent
-    on_edge = agents['x'][(agents['prev'] == agent['prev']) & (agents['next'] == agent['next'])]
-    breaks = np.transpose(np.stack((on_edge - spacing, on_edge + spacing)))
-    agent['x'] = random_disjoint(breaks, net[ agent['prev'][0], agent['next'][0] ] - spacing)
+    def load_config(self):
+        with open(self.config_filename) as config_file:
+            config_text = config_file.read()
+        self.config = json.loads(config_text)['config']
 
-    valid = agent['x'] > 0
-    agent_route = net.shortest_path(agent['next'][0], net.closest(xy_min +
-        xy_size*np.random.random_sample(2)))[1:] if valid else None
-    agent['route_pos'] = 0
+    def update(self):
+        self.net = network.gen_grid(self.config['network']['size'], 
+            self.config['network']['unit_width'],
+            self.config['network']['unit_height'])
+        self._update_agents()
 
-    return agent, agent_route, valid
+    def load_update_plot(self, _):
+        self.load_config()
+        self.update()
+        self.update_plot()
 
-def gen_agents(net, config):
-    """Generates full definitions (state, parameters and routes) for n-random agents."""
-    # generate agents' positions and routes sequentially
-    agents = np.empty(config['attempts'], dtype=agent_type)
-    agents_routes = np.empty_like(agents, dtype=object)
-    mask = np.zeros_like(agents, dtype=bool)
-    for i in range(agents.size):
-        agents[i], agents_routes[i], mask[i] = gen_agent(net, agents)
-    agents, agents_routes = agents[mask], agents_routes[mask]
+    def save(self, ic_filename, net_filename):
+        '''Outputs initial conditions to a binary file.'''
+        with open(ic_filename, 'wb') as f:
+            np.array([len(self.net)], dtype='i4').tofile(f)
+            self.net.weights.tofile(f)
+            np.array([len(self.agents)], dtype='i4').tofile(f)
+            self.agents.tofile(f)
+            self.agents_params.tofile(f)
+            for agent_route in self.agents_routes:
+                np.array(agent_route, dtype='i4').tofile(f)
+        self.net.save(net_filename)
 
-    # generate agents' other parameters all at once
-    agents_params = np.empty(agents.size, dtype=agent_params_type)
-    agents_params['route_len'] = np.array([len(route) for route in agents_routes])
-    agents_params['uid'] = np.arange(agents.size)
+    def attach_plot(self, ax):
+        self.ax = ax
 
-    agr = np.random.normal(1.0, config['agressive_stdev'], agents.size)
-    mean = config['idm_mean_params']
-    agents_params['v0'] = mean['v0'] * agr
-    agents_params['s0'] = mean['s0'] * (2-agr)
-    agents_params['T']  = mean['T']  * (2-agr)
-    agents_params['a']  = mean['a']  * agr
-    agents_params['b']  = mean['b']  * agr
-    agents['v'] = agents_params['v0']
-    agents['v'] *= np.random.normal(1.0, config['speed_from_v0_stdev'], agents.size)
-    return agents, agents_params, agents_routes
+    def update_plot(self):
+        self.ax.clear()
+        plot_agents(self.ax, self.net, self.agents, alpha=0.8, color='r')
+        self.net.plot(self.ax)
 
-def ic_tofile(net, agents, agents_params, agents_routes, filename):
-    """Outputs initial conditions to a binary file."""
-    with open(filename, 'wb') as f:
-        np.array([len(net)], dtype='i4').tofile(f)
-        net.weights.tofile(f)
-        np.array([len(agents)], dtype='i4').tofile(f)
-        agents.tofile(f)
-        agents_params.tofile(f)
-        for agent_route in agents_routes:
-            np.array(agent_route, dtype='i4').tofile(f)
+    def _update_agents(self):
+        """Generates full definitions (state, parameters and routes) for n-random agents."""
+        # generate agents' positions and routes sequentially
+        config = self.config['agents']
+        self.agents = np.zeros(config['attempts'], dtype=agent_type)
+        self.agents_routes = np.empty_like(self.agents, dtype=object)
+        mask = np.zeros_like(self.agents, dtype=bool)
+
+        for i in range(len(self.agents)):
+            self.agents[i], self.agents_routes[i], mask[i] = self._gen_agent()
+        self.agents, self.agents_routes = self.agents[mask], self.agents_routes[mask]
+
+        # generate agents' other parameters all at once
+        self.agents_params = np.empty_like(self.agents, dtype=agent_params_type)
+        self.agents_params['route_len'] = np.array([len(route) for route in self.agents_routes])
+        self.agents_params['uid'] = np.arange(len(self.agents))
+
+        agr = np.random.normal(1.0, config['agressive_stdev'], len(self.agents))
+        mean = config['idm_mean_params']
+        self.agents_params['v0'] = mean['v0'] * agr
+        self.agents_params['s0'] = mean['s0'] * (2-agr)
+        self.agents_params['T']  = mean['T']  * (2-agr)
+        self.agents_params['a']  = mean['a']  * agr
+        self.agents_params['b']  = mean['b']  * agr
+        self.agents['v'] = self.agents_params['v0']
+        self.agents['v'] *= np.random.normal(1.0, config['speed_from_v0_stdev'], len(self.agents))
+
+    def _gen_agent(self):
+        """Generates a complete definition for of a single agent."""
+        agent = np.empty(1, dtype=agent_type)
+        
+        # generate reference x, y coordinates and select closest pair of nodes as the edge
+        xy_min, xy_size = self.net.xy_limits()
+        xy_start = xy_min + xy_size*np.random.random_sample(2)
+        agent['prev'] = self.net.closest(xy_start)
+        neighs = self.net.neighbours(agent['prev'][0])
+        agent['next'] = neighs[self.net.closest(xy_start, neighs)] 
+
+        # find all existing agents on this edge and generate a suitable position for this agent
+        on_edge = self.agents['x'][
+            (self.agents['prev'] == agent['prev']) & (self.agents['next'] == agent['next'])]
+        breaks = np.transpose(np.stack((on_edge - spacing, on_edge + spacing)))
+        agent['x'] = random_disjoint(breaks, self.net[agent['prev'][0], agent['next'][0]] - spacing)
+
+        valid = agent['x'] > 0
+        agent_route = self.net.shortest_path(agent['next'][0], self.net.closest(xy_min +
+            xy_size*np.random.random_sample(2)))[1:] if valid else None
+        agent['route_pos'] = 0
+
+        return agent, agent_route, valid
 
 # process commandline arguments and load the configuration file
 parser = argparse.ArgumentParser(description='Generate initial conditions for traffic simulation.')
-parser.add_argument('-g', action='store_true', help='launch in graphical mode (not yet supported)')
-parser.add_argument('-c', metavar='CONFIG', default='config.json', help='configuration filename (default: config.json)')
-parser.add_argument('-oi', metavar='OUTIC', default='ic.bin', help='output initial conditions filename (default: ic.bin)')
-parser.add_argument('-on', metavar='OUTNET', default='net', help='output network filename, saved as an *.npz file (default: net)')
+parser.add_argument('-g', action='store_true',
+    help='launch in graphical mode (not yet supported)')
+parser.add_argument('-c', metavar='CONFIG', default='config.json',
+    help='configuration filename (default: config.json)')
+parser.add_argument('-oi', metavar='OUTIC', default='ic.bin',
+    help='output initial conditions filename (default: ic.bin)')
+parser.add_argument('-on', metavar='OUTNET', default='net',
+    help='output network filename, saved as an *.npz file (default: net)')
 args = parser.parse_args()
 
-with open(args.c) as config_file:
-    config_text = config_file.read()
-config = json.loads(config_text)['config']
+gen = Generator(args.c)
+if args.g:
+    fig, ax = plt.subplots()
+    plt.subplots_adjust(.1, .2, .9, .95)
+    bloadupd = Button(plt.axes((0.1, 0.05, 0.2, 0.075)), 'Load and update')
+    bsave = Button(plt.axes((0.325, 0.05, 0.2, 0.075)), 'Save')
+    bloadupd.on_clicked(gen.load_update_plot)
+    bsave.on_clicked(lambda _: gen.save(args.oi, args.on))
 
-# generate and save initial conditions
-net = network.gen_grid(config['network']['size'], 
-    config['network']['unit_width'],
-    config['network']['unit_height'])
-agents, agents_params, agents_routes = gen_agents(net, config['agents'])
-ic_tofile(net, agents, agents_params, agents_routes, args.oi)
-net.save(args.on)
+    gen.attach_plot(ax)
+    gen.update_plot()
+    plt.show()
+else:
+    gen.save(args.oi, args.on)
