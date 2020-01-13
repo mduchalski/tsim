@@ -11,7 +11,6 @@ v0, s0, T, a, b = 15, 1.5, 3, 1, 2
 spacing = s0 + v0 * T
 
 agent_params_type = np.dtype([
-    ('uid', 'i4'),
     ('v0', 'f8'),
     ('s0', 'f8'),
     ('T', 'f8'),
@@ -95,11 +94,11 @@ class Generator:
         for i in range(len(self.agents)):
             self.agents[i], self.agents_routes[i], mask[i] = self._gen_agent()
         self.agents, self.agents_routes = self.agents[mask], self.agents_routes[mask]
+        self.agents['uid'] = np.arange(len(self.agents))
 
         # generate agents' other parameters all at once
         self.agents_params = np.empty_like(self.agents, dtype=agent_params_type)
         self.agents_params['route_len'] = np.array([len(route) for route in self.agents_routes])
-        self.agents_params['uid'] = np.arange(len(self.agents))
 
         agr = np.random.normal(1.0, config['agressive_stdev'], len(self.agents))
         mean = config['idm_mean_params']

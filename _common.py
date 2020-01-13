@@ -1,12 +1,22 @@
 import numpy as np
 
 agent_type = np.dtype([
+    ('uid', 'i4'),
     ('x', 'f8'),
     ('v', 'f8'),
     ('prev', 'i4'),
     ('next', 'i4'),
     ('route_pos', 'i4'),
     ('_params', 'u8')])
+
+def results_fromfile(filename):
+    with open(filename, 'rb') as f:
+        t_step = np.fromfile(f, dtype='f8', count=1)[0]
+        n_steps = np.fromfile(f, dtype='i4', count=1)[0]
+        n_agents = np.fromfile(f, dtype='i4', count=1)[0]
+        results = np.fromfile(f, dtype=agent_type, count=n_steps*n_agents)
+        results = np.reshape(results, (n_steps, n_agents))
+    return results, t_step
 
 def get_agents_points(net, agents):
     # calculate X-Y agents' positions

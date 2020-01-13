@@ -7,7 +7,6 @@
 #include <unistd.h>
 
 typedef struct __attribute__((__packed__)) {
-    int uid;
     double v0;
     double s0;
     double T;
@@ -18,6 +17,7 @@ typedef struct __attribute__((__packed__)) {
 } agent_params_type;
 
 typedef struct __attribute__((__packed__)) {
+    int uid;
     double x;
     double v;
     int prev;
@@ -108,6 +108,7 @@ void sort_agents(agent_type *ags, const int ags_n) {
     }
 }
 
+/*
 void _print_agent(const agent_type ag)
 {
     printf("\tx = %.1f, v = %.1f, prev = %d, next = %d, route_pos = %d\n"
@@ -129,12 +130,13 @@ void _print_agents(const agent_type *ags, const int ags_n)
         _print_agent(ags[i]);
     }
 }
+*/
 
 void dealloc_agents(agent_type *ags, const int ags_n)
 {
     int zero_uid = 0;
     for(int i = 0; i < ags_n; i++) {
-        if(ags[i].params->uid == 0)
+        if(ags[i].uid == 0)
             zero_uid = i;
 
         free(ags[i].params->route);
@@ -237,6 +239,7 @@ void sim_cpu(const double t_step, const double t_end, const agent_type *ags_ic,
     FILE *f = fopen(out_filename, "wb");
 
     int steps = (int)floor(t_end / t_step);
+    fwrite(&t_step, sizeof(t_step), 1, f);
     fwrite(&steps, sizeof(steps), 1, f);
     fwrite(&ags_n, sizeof(ags_n), 1, f);
     for(int i = 0; i < steps; i++) {
@@ -279,10 +282,10 @@ int main(int argc, char *argv[])
                 printf("Usage: %s [-h] [-i IN] [-o OUT] [-s STEP] [-f FINAL]\n\n"
                     "Optional parameters:\n"
                     "-h:        displays this message\n"
-                    "-i IN:     initial conditions filename      (default: ic.bin)\n"
-                    "-o OUT:    simulation output filename       (default: res.bin)\n"
-                    "-s STEP:   simulation step in seconds       (default: 0.1)\n"
-                    "-f FINAL:  simulation stop time in seconds  (default: 10.0)\n", argv[0]);
+                    "-i IN:     initial conditions filename (default: ic.bin)\n"
+                    "-o OUT:    simulation output filename (default: res.bin)\n"
+                    "-s STEP:   simulation step in seconds (default: 0.1)\n"
+                    "-f FINAL:  simulation stop time in seconds (default: 10.0)\n", argv[0]);
                 return 0;
         }
     }
