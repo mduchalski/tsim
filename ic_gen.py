@@ -19,6 +19,16 @@ agent_params_type = np.dtype([
     ('route_len', 'i4'),
     ('_route', 'u8')])
 
+inter_type = np.dtype([
+    ('type_id', 'i4'),
+    ('_params', 'u8')
+])
+
+inter_type_ids = {
+    "always_open" : 0,
+    "simple" : 1
+}
+
 def random_disjoint(breaks, end):
     """
     Generates a random number from a range of (0, end) given a 2xN vector of
@@ -57,6 +67,7 @@ class Generator:
             self.config['network']['unit_width'],
             self.config['network']['unit_height'])
         self._update_agents()
+        self._update_intersections()
 
     def load_update_plot(self, _):
         self.load_config()
@@ -73,6 +84,10 @@ class Generator:
             self.agents_params.tofile(f)
             for agent_route in self.agents_routes:
                 np.array(agent_route, dtype='i4').tofile(f)
+            self.inters_types.tofile(f)
+            for inter_params in self.inters_params:
+                np.array(inter_params, dtype='f8').tofile(f)
+
         self.net.save(net_filename)
 
     def attach_plot(self, ax):
@@ -82,6 +97,26 @@ class Generator:
         self.ax.clear()
         plot_agents(self.ax, self.net, self.agents, alpha=0.8, color='r')
         self.net.plot(self.ax)
+
+    def _update_intersections(self):
+        config = self.config['intersections']
+        choices = []
+        probabilities = []
+        for type_names, opts in config.items():
+            choices.append(inter_type_ids[type_names])
+            probabilities.append(opts['probability'])
+        self.inters_types = np.empty(len(self.net), dtype=inter_type)
+        self.inters_types['type_id'] = np.random.choice(choices, len(self.net), p=probabilities)
+        
+        self.inters_params = []
+        for type_id in self.inters_types['type_id']:
+            if inter_type_ids['simple'] == type_id:
+                timeout = np.random.normal(config['simple']['timeout_mean'],
+                    config['simple']['timeout_stdev'])
+                offset = np.abs(np.random.normal(config['simple']['offset_stdev']))
+                self.inters_params.append([timeout, offset])
+            else:
+                self.inters_params.append([])
 
     def _update_agents(self):
         """Generates full definitions (state, parameters and routes) for n-random agents."""
