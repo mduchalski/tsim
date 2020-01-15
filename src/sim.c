@@ -29,9 +29,9 @@ bool inter_open(const double t, const int from, const int through,
     return true; // ALWAYS_OPEN and invalid entries   
 }
 
-void sort_agents(agent_type *ags, const int ags_n) {
+void sort_agents(agent_state_type *ags, const int ags_n) {
     int j;
-    agent_type tmp;
+    agent_state_type tmp;
 
     for(int i = 1; i < ags_n; i++) {
         tmp = ags[i];
@@ -41,24 +41,26 @@ void sort_agents(agent_type *ags, const int ags_n) {
     }
 }
 
-int first_on_next_edge(const int i, const agent_type *ags, const int ags_n) {
-    agent_type t;
-    t.prev = ags[i].next;
-    t.next = ags[i].params->route[ags[i].route_pos];
+int first_on_next_edge(const int i, const agent_state_type *states, 
+    const agent_params_type *params, const int ags_n) {
+    agent_state_type t;
+    t.prev = states[i].next;
+    t.next = params[states[i].uid].route[states[i].route_pos];
     int l = 0, r = ags_n, m;
     while (l < r) {
         m = (l+r)/2;
-        if(agents_edge_cmp(ags[m], t))
+        if(agents_edge_cmp(states[m], t))
             l = m+1;
         else r = m;
     }
     
-    if(ags[l].prev == t.prev && ags[l].next == t.next)
+    if(states[l].prev == t.prev && states[l].next == t.next)
         return l;
     return -1;
 }
 
-double idm_accel(const agent_type ag, double x_ahead, double v_ahead) {
-    double ss = ag.params->s0 + ag.v*ag.params->T + ag.v*(ag.v-v_ahead)/(2*sqrt(ag.params->a*ag.params->b));
-    return ag.params->a*(1 - pow(ag.v/ag.params->v0, 4) - pow(ss/(x_ahead-ag.x), 2));
+double idm_accel(const agent_state_type state, const agent_params_type params,
+    const double x_ahead, const double v_ahead) {
+    double ss = params.s0 + state.v*params.T + state.v*(state.v-v_ahead)/(2*sqrt(params.a*params.b));
+    return params.a*(1 - pow(state.v/params.v0, 4) - pow(ss/(x_ahead-state.x), 2));
 }

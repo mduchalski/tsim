@@ -26,13 +26,18 @@ typedef struct __attribute__((__packed__)) {
     int prev;
     int next;
     int route_pos;
-    agent_params_type *params;
-} agent_type;
+} agent_state_type;
 
 typedef struct __attribute__((__packed__)) {
     _inter_type type_id;
     double *params;
 } inter_type;
+
+typedef struct __attribute__((__packed__)) {
+    agent_state_type* states;
+    agent_params_type* params;
+    int count;
+} agents_type;
 
 typedef struct {
     double **weights;
@@ -41,8 +46,8 @@ typedef struct {
 } net_type;
 
 void dealloc_net(net_type*);
-void dealloc_agents(agent_type*, const int);
-bool agents_cmp(const agent_type, const agent_type);
-bool agents_edge_cmp(const agent_type, const agent_type);
+void dealloc_agents(agents_type*);
+bool agents_cmp(const agent_state_type, const agent_state_type);
+bool agents_edge_cmp(const agent_state_type, const agent_state_type);
 
 #endif

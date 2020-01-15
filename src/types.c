@@ -16,25 +16,17 @@ void dealloc_net(net_type *net)
     net->weights = NULL;
 }
 
-void dealloc_agents(agent_type *ags, const int ags_n)
+void dealloc_agents(agents_type *ags)
 {
-    int zero_uid = 0;
-    for(int i = 0; i < ags_n; i++) {
-        if(ags[i].uid == 0)
-            zero_uid = i;
-
-        free(ags[i].params->route);
-        ags[i].params->route = NULL;
-    }
-    free(ags[zero_uid].params);
-    ags[zero_uid].params = NULL;
-    free(ags);
-    ags = NULL;
+    free(ags->states);
+    ags->states = NULL;
+    free(ags->params);
+    ags->params = NULL;
 }
 
-bool agents_cmp(const agent_type a, const agent_type b)
+bool agents_cmp(const agent_state_type a, const agent_state_type b)
 {   
-    // comparison function for lexicographical sorting of agent_type struct arrays
+    // comparison function for lexicographical sorting of agent_state_type struct arrays
     // with order (prev, next, x)
     if(a.prev != b.prev)
         return a.prev < b.prev;
@@ -43,7 +35,7 @@ bool agents_cmp(const agent_type a, const agent_type b)
     else return a.x < b.x;
 }
 
-bool agents_edge_cmp(const agent_type a, const agent_type b)
+bool agents_edge_cmp(const agent_state_type a, const agent_state_type b)
 {
     if(a.prev != b.prev)
         return a.prev < b.prev;

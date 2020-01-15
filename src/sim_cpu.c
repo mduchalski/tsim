@@ -9,32 +9,33 @@
 
 #define DECELL_MAX 10.0
 
-void agent_sim(agent_type *ags, const int i, const double t, const double t_step,
-    const net_type *net, const agent_type *ags_prev, const int ags_n)
+void agent_sim(agent_state_type *states, const int i, const double t,
+    const double t_step, const net_type *net, const agent_state_type *states_prev,
+    const agent_params_type *params, const int ags_count)
 {
-    if(ags_prev[i].next < 0)
+    if(states_prev[i].next < 0)
         return; // agent is inactive
 
     double x_ahead, v_ahead;
-    if(i+1 < ags_n && ags_prev[i+1].next == ags_prev[i].next && 
-        ags_prev[i].prev == ags_prev[i+1].prev) {
+    if(i+1 < ags_count && states_prev[i+1].next == states_prev[i].next && 
+        states_prev[i].prev == states_prev[i+1].prev) {
         // there is an agent ahead on the same edge
-        x_ahead = ags_prev[i+1].x;
-        v_ahead = ags_prev[i+1].v;
+        x_ahead = states_prev[i+1].x;
+        v_ahead = states_prev[i+1].v;
     }
-    else if(ags_prev[i].route_pos == ags_prev[i].params->route_len) {
+    else if(states_prev[i].route_pos == params[states_prev[i].uid].route_len) {
         // agent is approaching its destination with no agents ahead
         x_ahead = DBL_MAX;
         v_ahead = 0.0;
     }
     //else if (true) {
-    else if(inter_open(t, ags_prev[i].prev, ags_prev[i].next, -1, net)) {
+    else if(inter_open(t, states_prev[i].prev, states_prev[i].next, -1, net)) {
         // there is a open intersection ahead of an agent
-        int j = first_on_next_edge(i, ags_prev, ags_n);
+        int j = first_on_next_edge(i, states_prev, params, ags_count);
         if(j != -1) {
             // there is an agent on the next edge
-            x_ahead = net->weights[ags_prev[i].prev][ags_prev[i].next]+ags_prev[j].x;
-            v_ahead = ags_prev[j].v;
+            x_ahead = net->weights[states_prev[i].prev][states_prev[i].next]+states_prev[j].x;
+            v_ahead = states_prev[j].v;
         }
         else {
             x_ahead = DBL_MAX;
@@ -43,55 +44,55 @@ void agent_sim(agent_type *ags, const int i, const double t, const double t_step
     }
     else {
         // there is a closed intersection ahead of an agent
-        x_ahead = net->weights[ags_prev[i].prev][ags_prev[i].next];
+        x_ahead = net->weights[states_prev[i].prev][states_prev[i].next];
         v_ahead = 0;
     }
 
-    ags[i].x += t_step*ags_prev[i].v;
-    double accel = idm_accel(ags_prev[i], x_ahead, v_ahead);
+    states[i].x += t_step*states_prev[i].v;
+    double accel = idm_accel(states_prev[i], params[states_prev[i].uid], x_ahead, v_ahead);
     if(accel < -DECELL_MAX)
         accel = -DECELL_MAX;
-    ags[i].v += t_step*accel;
-    if(ags[i].v < 0.0)
-        ags[i].v = 0.0;
+    states[i].v += t_step*accel;
+    if(states[i].v < 0.0)
+        states[i].v = 0.0;
 
-    if(ags[i].x > net->weights[ags_prev[i].prev][ags_prev[i].next]) {
-        if(ags_prev[i].params->route_len == 0 || 
-            ags_prev[i].route_pos == ags_prev[i].params->route_len)
-            ags[i].next = -1;
+    if(states[i].x > net->weights[states_prev[i].prev][states_prev[i].next]) {
+        if(params[states_prev[i].uid].route_len == 0 || 
+            states_prev[i].route_pos == params[states_prev[i].uid].route_len)
+            states[i].next = -1;
         else {
-            ags[i].x -= net->weights[ags_prev[i].prev][ags_prev[i].next];
-            ags[i].prev = ags[i].next;
-            ags[i].next = ags[i].params->route[ags[i].route_pos];
-            ags[i].route_pos++;
+            states[i].x -= net->weights[states_prev[i].prev][states_prev[i].next];
+            states[i].prev = states[i].next;
+            states[i].next = params[states_prev[i].uid].route[states[i].route_pos];
+            states[i].route_pos++;
         }
     }
 }
 
 void sim_cpu(const char* out_filename, const double t_step, const double t_final,
-    const net_type *net, const agent_type *ags_ic, const int ags_n)
+    const net_type *net, const agents_type *ags)
 {
-    agent_type *ags = malloc(ags_n * sizeof(*ags));
-    agent_type *ags_prev = malloc(ags_n * sizeof(*ags_prev));
-    memcpy(ags, ags_ic, ags_n * sizeof(*ags_ic));
+    agent_state_type *states = malloc(ags->count * sizeof(*states));
+    agent_state_type *states_prev = malloc(ags->count * sizeof(*states_prev));
+    memcpy(states, ags->states, ags->count * sizeof(*ags->states));
     FILE *f = fopen(out_filename, "wb");
 
     int steps = (int)floor(t_final / t_step);
     fwrite(&t_step, sizeof(t_step), 1, f);
     fwrite(&steps, sizeof(steps), 1, f);
-    fwrite(&ags_n, sizeof(ags_n), 1, f);
+    fwrite(&ags->count, sizeof(ags->count), 1, f);
     for(int i = 0; i < steps; i++) {
-        sort_agents(ags, ags_n);
-        fwrite(ags, ags_n * sizeof(*ags), 1, f);
-        memcpy(ags_prev, ags, ags_n * sizeof(*ags));
-        for(int j = 0; j < ags_n; j++)
-            agent_sim(ags, j, (double)i*t_step, t_step, net, ags_prev, ags_n);
+        sort_agents(states, ags->count);
+        fwrite(states, ags->count * sizeof(*states), 1, f);
+        memcpy(states_prev, states, ags->count * sizeof(*states));
+        for(int j = 0; j < ags->count; j++)
+            agent_sim(states, j, (double)i*t_step, t_step, net, states_prev, ags->params, ags->count);
     }
 
     fclose(f);
     f = NULL;
-    free(ags);
-    ags = NULL;
-    free(ags_prev);
-    ags_prev = NULL;
+    free(states);
+    states = NULL;
+    free(states_prev);
+    states_prev = NULL;
 }

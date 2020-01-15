@@ -9,8 +9,8 @@
 int find_pred(int*, const int, const net_type*);
 bool simple_inter(const double, const int, const int, const double, const double, const net_type*);
 bool inter_open(const double, const int, const int, const int, const net_type*);
-void sort_agents(agent_type *ags, const int ags_n);
-int first_on_next_edge(const int, const agent_type*, const int);
-double idm_accel(const agent_type, double, double);
+void sort_agents(agent_state_type*, const int);
+int first_on_next_edge(const int, const agent_state_type*, const agent_params_type*, const int);
+double idm_accel(const agent_state_type, const agent_params_type, const double, const double);
 
 #endif

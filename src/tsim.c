@@ -7,7 +7,7 @@
 
 #define SQR(x) x*x
 
-void ic_fromfile(const char* filename, net_type *net, agent_type **ags, int *ags_n)
+void ic_fromfile(const char* filename, net_type *net, agents_type *ags)
 {
     FILE *f = fopen(filename, "rb");
 
@@ -19,18 +19,17 @@ void ic_fromfile(const char* filename, net_type *net, agent_type **ags, int *ags
         net->weights[i] = net->weights[0] + net->nodes_n*i;
     fread(net->weights[0], sizeof(**net->weights), SQR(net->nodes_n), f);
 
-    fread(ags_n, sizeof(int), 1, f);
-    *ags = malloc(*ags_n * sizeof(**ags));
-    fread(*ags, sizeof(**ags), *ags_n, f);
+    fread(&ags->count, sizeof(int), 1, f);
+    ags->states = malloc(ags->count * sizeof(*ags->states));
+    fread(ags->states, sizeof(*ags->states), ags->count, f);
     
-    agent_params_type *ags_pars = malloc(*ags_n * sizeof(agent_params_type));
-    fread(ags_pars, sizeof(*ags_pars), *ags_n, f);
+    ags->params = malloc(ags->count * sizeof(agent_params_type));
+    fread(ags->params, sizeof(*ags->params), ags->count, f);
     int route_bytes;
-    for(int i = 0; i < *ags_n; i++) {
-        route_bytes = ags_pars[i].route_len * sizeof(*ags_pars->route);
-        ags_pars[i].route = malloc(route_bytes);
-        fread(ags_pars[i].route, route_bytes, 1, f);
-        (*ags)[i].params = ags_pars + i;
+    for(int i = 0; i < ags->count; i++) {
+        route_bytes = ags->params[i].route_len * sizeof(*ags->params->route);
+        ags->params[i].route = malloc(route_bytes);
+        fread(ags->params[i].route , route_bytes, 1, f);
     }
 
     net->inters = malloc(net->nodes_n * sizeof(*net->inters));
@@ -86,16 +85,12 @@ int main(int argc, char *argv[])
     }
 
     net_type net;
-    int ags_n;
-    agent_type* ags_ic;
+    agents_type ags;
 
-    ic_fromfile(in_filename, &net, &ags_ic, &ags_n);
-    sim_cpu(out_filename, t_step, t_final, &net, ags_ic, ags_n);
-    
-    //ic_fromfile(in_filename, &weights, &ags_ic, &inters_types, &nodes_n, &ags_n);
-    //sim_cpu(t_step, t_final, ags_ic, weights, inters_types, nodes_n, ags_n, out_filename);
+    ic_fromfile(in_filename, &net, &ags);
+    sim_cpu(out_filename, t_step, t_final, &net, &ags);
 
-    dealloc_agents(ags_ic, ags_n);
+    dealloc_agents(&ags);
     dealloc_net(&net);
 
     return 0;
