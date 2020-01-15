@@ -1,0 +1,32 @@
+{"config": {
+    "network": {
+        "generator": "grid",
+        "size": 10,
+        "unit_width": 300,
+        "unit_height": 300,
+        "params": []
+    },
+    "intersections": {
+        "always_open" : {
+            "probability" : 0.1
+        },
+        "simple" : {
+            "probability" : 0.9,
+            "timeout_mean" : 15.0,
+            "timeout_stdev" : 5,
+            "offset_stdev" : 2
+        }
+    },
+    "agents": {
+        "attempts": 1000,
+        "agressive_stdev": 0.1,
+        "speed_from_v0_stdev": 0.05,
+        "idm_mean_params": {
+            "v0": 15,
+            "s0": 1.5,
+            "T": 3,
+            "a": 1,
+            "b": 2
+        }
+    }
+}}
