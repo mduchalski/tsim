@@ -11,6 +11,7 @@ typedef enum {
     SIMPLE = 1
 } _inter_type;
 
+
 typedef struct __attribute__((__packed__)) {
     double v0;
     double s0;
@@ -36,18 +37,25 @@ typedef struct __attribute__((__packed__)) {
     double *params;
 } inter_type;
 
-void ic_fromfile(const char* name, double ***weights, agent_type **ags,
-    inter_type **inters_types, int *nodes_n, int *ags_n)
+typedef struct {
+    double **weights;
+    inter_type *inters;
+    int nodes_n;
+} net_type;
+
+#define SQR(x) x*x
+
+void ic_fromfile(const char* filename, net_type *net, agent_type **ags, int *ags_n)
 {
-    FILE *f = fopen(name, "rb");
+    FILE *f = fopen(filename, "rb");
 
-    fread(nodes_n, sizeof(int), 1, f);
+    fread(&net->nodes_n, sizeof(int), 1, f);
 
-    *weights = malloc((*nodes_n) * sizeof(**weights));
-    (*weights)[0] = malloc((*nodes_n)*(*nodes_n) * sizeof(***weights));
-    for(int i = 1; i < *nodes_n; i++)
-        (*weights)[i] = (*weights)[0] + (*nodes_n)*i;
-    fread((*weights)[0], sizeof(***weights), (*nodes_n)*(*nodes_n), f);
+    net->weights = malloc(net->nodes_n * sizeof(*net->weights));
+    net->weights[0] = malloc(SQR(net->nodes_n) * sizeof(**net->weights));
+    for(int i = 1; i < net->nodes_n; i++)
+        net->weights[i] = net->weights[0] + net->nodes_n*i;
+    fread(net->weights[0], sizeof(**net->weights), SQR(net->nodes_n), f);
 
     fread(ags_n, sizeof(int), 1, f);
     *ags = malloc(*ags_n * sizeof(**ags));
@@ -63,11 +71,11 @@ void ic_fromfile(const char* name, double ***weights, agent_type **ags,
         (*ags)[i].params = ags_pars + i;
     }
 
-    *inters_types = malloc(*nodes_n * sizeof(**inters_types));
-    fread(*inters_types, sizeof(**inters_types), *nodes_n, f);
+    net->inters = malloc(net->nodes_n * sizeof(*net->inters));
+    fread(net->inters, sizeof(*net->inters), net->nodes_n, f);
     int params_bytes;
-    for(int i = 0; i < *nodes_n; i++) {
-        switch((*inters_types)[i].type_id) {
+    for(int i = 0; i < net->nodes_n; i++) {
+        switch(net->inters[i].type_id) {
             case SIMPLE:
                 params_bytes = 2;
                 break;
@@ -75,9 +83,9 @@ void ic_fromfile(const char* name, double ***weights, agent_type **ags,
                 params_bytes = 0;
                 break;
         }
-        params_bytes *= sizeof(*inters_types[0]->params);
-        (*inters_types)[i].params = malloc(params_bytes);
-        fread((*inters_types)[i].params, params_bytes, 1, f);
+        params_bytes *= sizeof(net->inters[0].params[0]);
+        net->inters[i].params = malloc(params_bytes);
+        fread(net->inters[i].params, params_bytes, 1, f);
     }
 
     fclose(f);
@@ -86,30 +94,29 @@ void ic_fromfile(const char* name, double ***weights, agent_type **ags,
 
 const int MAX_PREDECESSORS = 4;
 
-int find_pred(int *pred, const int node, double** weights, const int nodes_n)
+int find_pred(int *pred, const int node, const net_type *net)
 {
     int i = 0;
-    for(int j = 0; j < nodes_n; j++)
-        if(weights[j][node])
+    for(int j = 0; j < net->nodes_n; j++)
+        if(net->weights[j][node])
             pred[i++] = j;
     return i;
 }
 
 bool simple_inter(const double t, const int from, const int through,
-    double** weights, const int nodes_n, const double timeout, const double offset)
+    const double timeout, const double offset, const net_type *net)
 {
     int pred[MAX_PREDECESSORS];
-    int pred_n = find_pred(pred, through, weights, nodes_n);
+    int pred_n = find_pred(pred, through, net);
     return pred[(int)(fmod(t+offset, (double)pred_n*timeout) / timeout)] == from;
 }
 
 bool inter_open(const double t, const int from, const int through,
-    const int to, double** weights, inter_type* inters_types, const int nodes_n) 
+    const int to, const net_type *net) 
 {
-    if(inters_types[through].type_id == SIMPLE)
-        return simple_inter(t, from, through, weights, nodes_n,
-            inters_types[through].params[0],  // timeout
-            inters_types[through].params[1]); // offset
+    if(net->inters[through].type_id == SIMPLE)
+        return simple_inter(t, from, through, net->inters[through].params[0],
+            net->inters[through].params[1], net);
     
     return true; // ALWAYS_OPEN and invalid entries   
 }
@@ -186,8 +193,9 @@ double idm_accel(const agent_type ag, double x_ahead, double v_ahead) {
 
 const double DECELL_MAX = 10.0;
 
-void agent_sim(const double t, const int i, agent_type *ags, const agent_type *ags_prev,
-    const int ags_n, double **weights, inter_type* inters_types, const int nodes_n, const double t_step) {
+void agent_sim(agent_type *ags, const int i, const double t, const double t_step,
+    const net_type *net, const agent_type *ags_prev, const int ags_n)
+{
     if(ags_prev[i].next < 0)
         return; // agent is inactive
 
@@ -204,12 +212,12 @@ void agent_sim(const double t, const int i, agent_type *ags, const agent_type *a
         v_ahead = 0.0;
     }
     //else if (true) {
-    else if(inter_open(t, ags_prev[i].prev, ags_prev[i].next, -1, weights, inters_types, nodes_n)) {
+    else if(inter_open(t, ags_prev[i].prev, ags_prev[i].next, -1, net)) {
         // there is a open intersection ahead of an agent
         int j = first_on_next_edge(i, ags_prev, ags_n);
         if(j != -1) {
             // there is an agent on the next edge
-            x_ahead = weights[ags_prev[i].prev][ags_prev[i].next]+ags_prev[j].x;
+            x_ahead = net->weights[ags_prev[i].prev][ags_prev[i].next]+ags_prev[j].x;
             v_ahead = ags_prev[j].v;
         }
         else {
@@ -219,7 +227,7 @@ void agent_sim(const double t, const int i, agent_type *ags, const agent_type *a
     }
     else {
         // there is a closed intersection ahead of an agent
-        x_ahead = weights[ags_prev[i].prev][ags_prev[i].next];
+        x_ahead = net->weights[ags_prev[i].prev][ags_prev[i].next];
         v_ahead = 0;
     }
 
@@ -231,12 +239,12 @@ void agent_sim(const double t, const int i, agent_type *ags, const agent_type *a
     if(ags[i].v < 0.0)
         ags[i].v = 0.0;
 
-    if(ags[i].x > weights[ags_prev[i].prev][ags_prev[i].next]) {
+    if(ags[i].x > net->weights[ags_prev[i].prev][ags_prev[i].next]) {
         if(ags_prev[i].params->route_len == 0 || 
             ags_prev[i].route_pos == ags_prev[i].params->route_len)
             ags[i].next = -1;
         else {
-            ags[i].x -= weights[ags_prev[i].prev][ags_prev[i].next];
+            ags[i].x -= net->weights[ags_prev[i].prev][ags_prev[i].next];
             ags[i].prev = ags[i].next;
             ags[i].next = ags[i].params->route[ags[i].route_pos];
             ags[i].route_pos++;
@@ -244,16 +252,15 @@ void agent_sim(const double t, const int i, agent_type *ags, const agent_type *a
     }
 }
 
-void sim_cpu(const double t_step, const double t_end, const agent_type *ags_ic,
-    double **weights, inter_type *inters_types, const int nodes_n, const int ags_n,
-    const char* out_filename)
+void sim_cpu(const char* out_filename, const double t_step, const double t_final,
+    const net_type *net, const agent_type *ags_ic, const int ags_n)
 {
     agent_type *ags = malloc(ags_n * sizeof(*ags));
     agent_type *ags_prev = malloc(ags_n * sizeof(*ags_prev));
     memcpy(ags, ags_ic, ags_n * sizeof(*ags_ic));
     FILE *f = fopen(out_filename, "wb");
 
-    int steps = (int)floor(t_end / t_step);
+    int steps = (int)floor(t_final / t_step);
     fwrite(&t_step, sizeof(t_step), 1, f);
     fwrite(&steps, sizeof(steps), 1, f);
     fwrite(&ags_n, sizeof(ags_n), 1, f);
@@ -262,8 +269,7 @@ void sim_cpu(const double t_step, const double t_end, const agent_type *ags_ic,
         fwrite(ags, ags_n * sizeof(*ags), 1, f);
         memcpy(ags_prev, ags, ags_n * sizeof(*ags));
         for(int j = 0; j < ags_n; j++)
-            agent_sim((double)i*t_step, j, ags, ags_prev, ags_n, weights, 
-                inters_types, nodes_n, t_step);
+            agent_sim(ags, j, (double)i*t_step, t_step, net, ags_prev, ags_n);
     }
 
     fclose(f);
@@ -272,6 +278,20 @@ void sim_cpu(const double t_step, const double t_end, const agent_type *ags_ic,
     ags = NULL;
     free(ags_prev);
     ags_prev = NULL;
+}
+
+void dealloc_net(net_type *net)
+{
+    for(int i = 0; i < net->nodes_n; i++) {
+        free(net->inters[i].params);
+        net->inters[i].params = NULL;
+    }
+    free(net->inters);
+    net->inters = NULL;
+    free(*net->weights);
+    *net->weights = NULL;
+    free(net->weights);
+    net->weights = NULL;
 }
 
 int main(int argc, char *argv[])
@@ -305,25 +325,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    int nodes_n, ags_n;
-    double **weights;
+    net_type net;
+    int ags_n;
     agent_type* ags_ic;
-    inter_type* inters_types;
 
-    ic_fromfile(in_filename, &weights, &ags_ic, &inters_types, &nodes_n, &ags_n);
-    sim_cpu(t_step, t_final, ags_ic, weights, inters_types, nodes_n, ags_n, out_filename);
+    ic_fromfile(in_filename, &net, &ags_ic, &ags_n);
+    sim_cpu(out_filename, t_step, t_final, &net, ags_ic, ags_n);
+    
+    //ic_fromfile(in_filename, &weights, &ags_ic, &inters_types, &nodes_n, &ags_n);
+    //sim_cpu(t_step, t_final, ags_ic, weights, inters_types, nodes_n, ags_n, out_filename);
 
     dealloc_agents(ags_ic, ags_n);
-    for(int i = 0; i < nodes_n; i++) {
-        free(inters_types[i].params);
-        inters_types[i].params = NULL;
-    }
-    free(inters_types);
-    inters_types = NULL;
-    free(*weights);
-    *weights = NULL;
-    free(weights);
-    weights = NULL;
+    dealloc_net(&net);
 
     return 0;
 }
