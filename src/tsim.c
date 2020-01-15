@@ -11,7 +11,7 @@ void ic_fromfile(const char* filename, net_type *net, agents_type *ags)
 {
     FILE *f = fopen(filename, "rb");
 
-    fread(&net->nodes_n, sizeof(int), 1, f);
+    fread(&net->nodes_n, sizeof(net->nodes_n), 1, f);
 
     net->weights = malloc(net->nodes_n * sizeof(*net->weights));
     net->weights[0] = malloc(SQR(net->nodes_n) * sizeof(**net->weights));
@@ -19,18 +19,17 @@ void ic_fromfile(const char* filename, net_type *net, agents_type *ags)
         net->weights[i] = net->weights[0] + net->nodes_n*i;
     fread(net->weights[0], sizeof(**net->weights), SQR(net->nodes_n), f);
 
-    fread(&ags->count, sizeof(int), 1, f);
+    fread(&ags->count, sizeof(ags->count), 1, f);
     ags->states = malloc(ags->count * sizeof(*ags->states));
     fread(ags->states, sizeof(*ags->states), ags->count, f);
     
     ags->params = malloc(ags->count * sizeof(agent_params_type));
     fread(ags->params, sizeof(*ags->params), ags->count, f);
-    int route_bytes;
-    for(int i = 0; i < ags->count; i++) {
-        route_bytes = ags->params[i].route_len * sizeof(*ags->params->route);
-        ags->params[i].route = malloc(route_bytes);
-        fread(ags->params[i].route , route_bytes, 1, f);
-    }
+    
+    int routes_len;
+    fread(&routes_len, sizeof(int), 1, f);
+    ags->routes = malloc(routes_len * sizeof(*ags->routes));
+    fread(ags->routes, sizeof(*ags->routes), routes_len, f);
 
     net->inters = malloc(net->nodes_n * sizeof(*net->inters));
     fread(net->inters, sizeof(*net->inters), net->nodes_n, f);

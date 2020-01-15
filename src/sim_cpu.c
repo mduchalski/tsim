@@ -11,7 +11,7 @@
 
 void agent_sim(agent_state_type *states, const int i, const double t,
     const double t_step, const net_type *net, const agent_state_type *states_prev,
-    const agent_params_type *params, const int ags_count)
+    const agent_params_type *params, const int *routes, const int ags_count)
 {
     if(states_prev[i].next < 0)
         return; // agent is inactive
@@ -23,7 +23,7 @@ void agent_sim(agent_state_type *states, const int i, const double t,
         x_ahead = states_prev[i+1].x;
         v_ahead = states_prev[i+1].v;
     }
-    else if(states_prev[i].route_pos == params[states_prev[i].uid].route_len) {
+    else if(states_prev[i].route_pos == params[states_prev[i].uid].route_end) {
         // agent is approaching its destination with no agents ahead
         x_ahead = DBL_MAX;
         v_ahead = 0.0;
@@ -31,7 +31,7 @@ void agent_sim(agent_state_type *states, const int i, const double t,
     //else if (true) {
     else if(inter_open(t, states_prev[i].prev, states_prev[i].next, -1, net)) {
         // there is a open intersection ahead of an agent
-        int j = first_on_next_edge(i, states_prev, params, ags_count);
+        int j = first_on_next_edge(i, states_prev, routes, ags_count);
         if(j != -1) {
             // there is an agent on the next edge
             x_ahead = net->weights[states_prev[i].prev][states_prev[i].next]+states_prev[j].x;
@@ -57,13 +57,13 @@ void agent_sim(agent_state_type *states, const int i, const double t,
         states[i].v = 0.0;
 
     if(states[i].x > net->weights[states_prev[i].prev][states_prev[i].next]) {
-        if(params[states_prev[i].uid].route_len == 0 || 
-            states_prev[i].route_pos == params[states_prev[i].uid].route_len)
+        if(params[states_prev[i].uid].route_end == 0 || 
+            states_prev[i].route_pos == params[states_prev[i].uid].route_end)
             states[i].next = -1;
         else {
             states[i].x -= net->weights[states_prev[i].prev][states_prev[i].next];
             states[i].prev = states[i].next;
-            states[i].next = params[states_prev[i].uid].route[states[i].route_pos];
+            states[i].next = routes[states[i].route_pos];
             states[i].route_pos++;
         }
     }
@@ -86,7 +86,8 @@ void sim_cpu(const char* out_filename, const double t_step, const double t_final
         fwrite(states, ags->count * sizeof(*states), 1, f);
         memcpy(states_prev, states, ags->count * sizeof(*states));
         for(int j = 0; j < ags->count; j++)
-            agent_sim(states, j, (double)i*t_step, t_step, net, states_prev, ags->params, ags->count);
+            agent_sim(states, j, (double)i*t_step, t_step, net, states_prev,
+                ags->params, ags->routes, ags->count);
     }
 
     fclose(f);

@@ -15,8 +15,7 @@ typedef struct __attribute__((__packed__)) {
     double T;
     double a;
     double b;
-    int route_len;
-    int *route;
+    int route_end;
 } agent_params_type;
 
 typedef struct __attribute__((__packed__)) {
@@ -33,9 +32,10 @@ typedef struct __attribute__((__packed__)) {
     double *params;
 } inter_type;
 
-typedef struct __attribute__((__packed__)) {
+typedef struct {
     agent_state_type* states;
     agent_params_type* params;
+    int *routes;
     int count;
 } agents_type;
 

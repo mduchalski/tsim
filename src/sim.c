@@ -42,10 +42,10 @@ void sort_agents(agent_state_type *ags, const int ags_n) {
 }
 
 int first_on_next_edge(const int i, const agent_state_type *states, 
-    const agent_params_type *params, const int ags_n) {
+    const int *routes, const int ags_n) {
     agent_state_type t;
     t.prev = states[i].next;
-    t.next = params[states[i].uid].route[states[i].route_pos];
+    t.next = routes[states[i].route_pos];
     int l = 0, r = ags_n, m;
     while (l < r) {
         m = (l+r)/2;

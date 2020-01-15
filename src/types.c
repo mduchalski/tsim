@@ -22,6 +22,8 @@ void dealloc_agents(agents_type *ags)
     ags->states = NULL;
     free(ags->params);
     ags->params = NULL;
+    free(ags->routes);
+    ags->routes = NULL;
 }
 
 bool agents_cmp(const agent_state_type a, const agent_state_type b)

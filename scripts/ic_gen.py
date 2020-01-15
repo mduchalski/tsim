@@ -16,8 +16,7 @@ agent_params_type = np.dtype([
     ('T', 'f8'),
     ('a', 'f8'),
     ('b', 'f8'),
-    ('route_len', 'i4'),
-    ('_route', 'u8')])
+    ('route_end', 'i4')])
 
 inter_type = np.dtype([
     ('type_id', 'i4'),
@@ -82,6 +81,7 @@ class Generator:
             np.array([len(self.agents)], dtype='i4').tofile(f)
             self.agents.tofile(f)
             self.agents_params.tofile(f)
+            np.array([sum(len(ar) for ar in self.agents_routes)], dtype='i4').tofile(f)
             for agent_route in self.agents_routes:
                 np.array(agent_route, dtype='i4').tofile(f)
             self.inters_types.tofile(f)
@@ -133,7 +133,8 @@ class Generator:
 
         # generate agents' other parameters all at once
         self.agents_params = np.empty_like(self.agents, dtype=agent_params_type)
-        self.agents_params['route_len'] = np.array([len(route) for route in self.agents_routes])
+        self.agents_params['route_end'] = np.cumsum([len(route) for route in self.agents_routes])
+        self.agents['route_pos'] = np.concatenate(([0], self.agents_params['route_end'][:-1]))
 
         agr = np.random.normal(1.0, config['agressive_stdev'], len(self.agents))
         mean = config['idm_mean_params']
@@ -165,7 +166,6 @@ class Generator:
         valid = agent['x'] > 0
         agent_route = self.net.shortest_path(agent['next'][0], self.net.closest(xy_min +
             xy_size*np.random.random_sample(2)))[1:] if valid else None
-        agent['route_pos'] = 0
 
         return agent, agent_route, valid
 
