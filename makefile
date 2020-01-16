@@ -1,4 +1,4 @@
-CC=gcc
+CC=nvcc
 LIBS=-lm
 OBJ_DIR=obj
 SRC_DIR=src
@@ -24,5 +24,5 @@ $(OBJ_DIR)/types.o: $(SRC_DIR)/types.c $(SRC_DIR)/types.h
 	$(CC) $(CCFLAGS) $(SRC_DIR)/types.c -o $(OBJ_DIR)/types.o -c
 
 clean:
-	rm $(OBJ_DIR)/*
-	rm tsim
+	rm -f $(OBJ_DIR)/*
+	rm -f tsim
