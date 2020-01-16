@@ -23,8 +23,9 @@ bool inter_open(const double t, const int from, const int through,
     const int to, const net_type *net) 
 {
     if(net->inters[through].type_id == SIMPLE)
-        return simple_inter(t, from, through, net->inters[through].params[0],
-            net->inters[through].params[1], net);
+        return simple_inter(t, from, through, 
+            net->inters_params[net->inters[through].params_start],           // offset
+            net->inters_params[net->inters[through].params_start + 1], net); // timeout
     
     return true; // ALWAYS_OPEN and invalid entries   
 }

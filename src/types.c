@@ -4,12 +4,10 @@
 
 void dealloc_net(net_type *net)
 {
-    for(int i = 0; i < net->nodes_n; i++) {
-        free(net->inters[i].params);
-        net->inters[i].params = NULL;
-    }
     free(net->inters);
     net->inters = NULL;
+    free(net->inters_params);
+    net->inters_params = NULL;
     free(*net->weights);
     *net->weights = NULL;
     free(net->weights);

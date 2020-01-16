@@ -27,26 +27,17 @@ void ic_fromfile(const char* filename, net_type *net, agents_type *ags)
     fread(ags->params, sizeof(*ags->params), ags->count, f);
     
     int routes_len;
-    fread(&routes_len, sizeof(int), 1, f);
+    fread(&routes_len, sizeof(routes_len), 1, f);
     ags->routes = malloc(routes_len * sizeof(*ags->routes));
     fread(ags->routes, sizeof(*ags->routes), routes_len, f);
 
     net->inters = malloc(net->nodes_n * sizeof(*net->inters));
     fread(net->inters, sizeof(*net->inters), net->nodes_n, f);
-    int params_bytes;
-    for(int i = 0; i < net->nodes_n; i++) {
-        switch(net->inters[i].type_id) {
-            case SIMPLE:
-                params_bytes = 2;
-                break;
-            default:
-                params_bytes = 0;
-                break;
-        }
-        params_bytes *= sizeof(net->inters[0].params[0]);
-        net->inters[i].params = malloc(params_bytes);
-        fread(net->inters[i].params, params_bytes, 1, f);
-    }
+
+    int inters_params_len;
+    fread(&inters_params_len, sizeof(inters_params_len), 1, f);
+    net->inters_params = malloc(inters_params_len * sizeof(*net->inters_params));
+    fread(net->inters_params, sizeof(*net->inters_params), inters_params_len, f);
 
     fclose(f);
     f = NULL;

@@ -29,7 +29,7 @@ typedef struct __attribute__((__packed__)) {
 
 typedef struct __attribute__((__packed__)) {
     _inter_type type_id;
-    double *params;
+    int params_start;
 } inter_type;
 
 typedef struct {
@@ -42,6 +42,7 @@ typedef struct {
 typedef struct {
     double **weights;
     inter_type *inters;
+    double *inters_params;
     int nodes_n;
 } net_type;
 

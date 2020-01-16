@@ -1,0 +1,6 @@
+.vscode/*
+*.bin
+*.npz
+tsim
+obj/*
+scripts/__pycache__/*

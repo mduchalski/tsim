@@ -20,7 +20,7 @@ agent_params_type = np.dtype([
 
 inter_type = np.dtype([
     ('type_id', 'i4'),
-    ('_params', 'u8')
+    ('params_start', 'i4')
 ])
 
 inter_type_ids = {
@@ -85,8 +85,8 @@ class Generator:
             for agent_route in self.agents_routes:
                 np.array(agent_route, dtype='i4').tofile(f)
             self.inters_types.tofile(f)
-            for inter_params in self.inters_params:
-                np.array(inter_params, dtype='f8').tofile(f)
+            np.array([len(self.inters_params)], dtype='i4').tofile(f)
+            self.inters_params.tofile(f)
 
         self.net.save(net_filename)
 
@@ -109,14 +109,14 @@ class Generator:
         self.inters_types['type_id'] = np.random.choice(choices, len(self.net), p=probabilities)
         
         self.inters_params = []
-        for type_id in self.inters_types['type_id']:
+        for i, type_id in zip(range(len(self.net)), self.inters_types['type_id']):
+            self.inters_types[i]['params_start'] = len(self.inters_params)
             if inter_type_ids['simple'] == type_id:
                 timeout = np.random.normal(config['simple']['timeout_mean'],
                     config['simple']['timeout_stdev'])
                 offset = np.abs(np.random.normal(config['simple']['offset_stdev']))
-                self.inters_params.append([timeout, offset])
-            else:
-                self.inters_params.append([])
+                self.inters_params += [timeout, offset]
+        self.inters_params = np.array(self.inters_params, dtype='f8')
 
     def _update_agents(self):
         """Generates full definitions (state, parameters and routes) for n-random agents."""
