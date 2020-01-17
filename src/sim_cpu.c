@@ -34,7 +34,7 @@ void agent_sim(agent_state_type *states, const int i, const double t,
         int j = first_on_next_edge(i, states_prev, routes, ags_count);
         if(j != -1) {
             // there is an agent on the next edge
-            x_ahead = net->weights[states_prev[i].prev][states_prev[i].next]+states_prev[j].x;
+            x_ahead = net->weights[states_prev[i].prev*net->nodes_n + states_prev[i].next]+states_prev[j].x;
             v_ahead = states_prev[j].v;
         }
         else {
@@ -44,7 +44,7 @@ void agent_sim(agent_state_type *states, const int i, const double t,
     }
     else {
         // there is a closed intersection ahead of an agent
-        x_ahead = net->weights[states_prev[i].prev][states_prev[i].next];
+        x_ahead = net->weights[states_prev[i].prev*net->nodes_n + states_prev[i].next];
         v_ahead = 0;
     }
 
@@ -56,12 +56,12 @@ void agent_sim(agent_state_type *states, const int i, const double t,
     if(states[i].v < 0.0)
         states[i].v = 0.0;
 
-    if(states[i].x > net->weights[states_prev[i].prev][states_prev[i].next]) {
+    if(states[i].x > net->weights[states_prev[i].prev*net->nodes_n + states_prev[i].next]) {
         if(params[states_prev[i].uid].route_end == 0 || 
             states_prev[i].route_pos == params[states_prev[i].uid].route_end)
             states[i].next = -1;
         else {
-            states[i].x -= net->weights[states_prev[i].prev][states_prev[i].next];
+            states[i].x -= net->weights[states_prev[i].prev*net->nodes_n + states_prev[i].next];
             states[i].prev = states[i].next;
             states[i].next = routes[states[i].route_pos];
             states[i].route_pos++;

@@ -16,12 +16,11 @@ agent_params_type = np.dtype([
     ('T', 'f8'),
     ('a', 'f8'),
     ('b', 'f8'),
-    ('route_end', 'i4')])
+    ('route_end', 'i4')], align=True)
 
 inter_type = np.dtype([
     ('type_id', 'i4'),
-    ('params_start', 'i4')
-])
+    ('params_start', 'i4')], align=True)
 
 inter_type_ids = {
     "always_open" : 0,

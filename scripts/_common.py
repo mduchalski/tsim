@@ -6,7 +6,7 @@ agent_type = np.dtype([
     ('v', 'f8'),
     ('prev', 'i4'),
     ('next', 'i4'),
-    ('route_pos', 'i4')])
+    ('route_pos', 'i4')], align=True)
 
 def results_fromfile(filename):
     with open(filename, 'rb') as f:

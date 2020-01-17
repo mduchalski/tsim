@@ -6,7 +6,7 @@ int find_pred(int *pred, const int node, const net_type *net)
 {
     int i = 0;
     for(int j = 0; j < net->nodes_n; j++)
-        if(net->weights[j][node])
+        if(net->weights[j*net->nodes_n + node])
             pred[i++] = j;
     return i;
 }
