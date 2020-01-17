@@ -30,18 +30,6 @@ bool inter_open(const double t, const int from, const int through,
     return true; // ALWAYS_OPEN and invalid entries   
 }
 
-void sort_agents(agent_state_type *ags, const int ags_n) {
-    int j;
-    agent_state_type tmp;
-
-    for(int i = 1; i < ags_n; i++) {
-        tmp = ags[i];
-        for(j = i-1; j >= 0 && agents_cmp(tmp, ags[j]); j--)
-            ags[j+1] = ags[j];
-        ags[j+1] = tmp;
-    }
-}
-
 int first_on_next_edge(const int i, const agent_state_type *states, 
     const int *routes, const int ags_n) {
     agent_state_type t;

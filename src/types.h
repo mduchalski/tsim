@@ -56,6 +56,7 @@ void dealloc_net(net_type*);
 void dealloc_agents(agents_type*);
 bool agents_cmp(const agent_state_type, const agent_state_type);
 bool agents_edge_cmp(const agent_state_type, const agent_state_type);
+void sort_agents(agent_state_type *ags, const int ags_n);
 void ic_fromfile(const char*, net_type*, agents_type*);
 
 #endif

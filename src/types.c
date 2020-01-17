@@ -45,6 +45,18 @@ bool agents_edge_cmp(const agent_state_type a, const agent_state_type b)
     else return 0;
 }
 
+void sort_agents(agent_state_type *ags, const int ags_n) {
+    int j;
+    agent_state_type tmp;
+
+    for(int i = 1; i < ags_n; i++) {
+        tmp = ags[i];
+        for(j = i-1; j >= 0 && agents_cmp(tmp, ags[j]); j--)
+            ags[j+1] = ags[j];
+        ags[j+1] = tmp;
+    }
+}
+
 void ic_fromfile(const char* filename, net_type *net, agents_type *ags)
 {
     FILE *f = fopen(filename, "rb");
