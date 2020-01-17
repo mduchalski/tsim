@@ -7,15 +7,20 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SQR(x) x*x
+typedef enum { CPU, CUDA } backend_type;
 
 int main(int argc, char *argv[])
 {
     char *in_filename = "ic.bin", *out_filename = "res.bin";
     double t_step = 0.1, t_final = 10.0;
+    backend_type backend = CPU;
     char opt;
-    while((opt = getopt(argc, argv, "i:o:s:f:h")) != -1) {
+    while((opt = getopt(argc, argv, "b:i:o:s:f:h")) != -1) {
         switch(opt) {
+            case 'b':
+                if(strcmp(optarg, "cuda"))
+                    backend = CUDA;
+                break;
             case 's':
                 t_step = atof(optarg);
                 break;
@@ -29,13 +34,14 @@ int main(int argc, char *argv[])
                 out_filename = strdup(optarg); // offset
                 break;
             case 'h':
-                printf("Usage: %s [-h] [-i IN] [-o OUT] [-s STEP] [-f FINAL]\n\n"
+                printf("Usage: %s [-h] [-b BACKEND] [-i IN] [-o OUT] [-s STEP] [-f FINAL]\n\n"
                     "Optional parameters:\n"
-                    "-h:        displays this message\n"
-                    "-i IN:     initial conditions filename (default: ic.bin)\n"
-                    "-o OUT:    simulation output filename (default: res.bin)\n"
-                    "-s STEP:   simulation step in seconds (default: 0.1)\n"
-                    "-f FINAL:  simulation stop time in seconds (default: 10.0)\n", argv[0]);
+                    "-h:         displays this message\n"
+                    "-b BACKEND: simulation backend (default: cpu)"
+                    "-i IN:      initial conditions filename (default: ic.bin)\n"
+                    "-o OUT:     simulation output filename (default: res.bin)\n"
+                    "-s STEP:    simulation step in seconds (default: 0.1)\n"
+                    "-f FINAL:   simulation stop time in seconds (default: 10.0)\n", argv[0]);
                 return 0;
         }
     }
@@ -44,7 +50,15 @@ int main(int argc, char *argv[])
     agents_type ags;
 
     ic_fromfile(in_filename, &net, &ags);
-    sim_gpu(out_filename, t_step, t_final, &net, &ags);
+
+    switch(backend) {
+        case CUDA:
+            sim_gpu(out_filename, t_step, t_final, &net, &ags);
+            break;
+        default: // CPU
+            sim_cpu(out_filename, t_step, t_final, &net, &ags);
+            break;
+    }
 
     dealloc_agents(&ags);
     dealloc_net(&net);
