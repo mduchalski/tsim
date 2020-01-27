@@ -190,13 +190,13 @@ void sim_gpu(const char* out_filename, const double t_step, const double t_final
     fwrite(&steps, sizeof(steps), 1, f);
     fwrite(&h_ags->count, sizeof(h_ags->count), 1, f);
     for(int i = 0; i < steps; i++) {
-        cudaMemcpy(states_host, states, h_ags->count * sizeof(*states), cudaMemcpyDeviceToHost);
-        sort_agents(states_host, h_ags->count);
-        fwrite(states_host, h_ags->count * sizeof(*states), 1, f);
-        cudaMemcpy(states, states_host, h_ags->count * sizeof(*states), cudaMemcpyHostToDevice);
+        //cudaMemcpy(states_host, states, h_ags->count * sizeof(*states), cudaMemcpyDeviceToHost);
+        //sort_agents(states_host, h_ags->count);
+        //cudaMemcpy(states, states_host, h_ags->count * sizeof(*states), cudaMemcpyHostToDevice);
         cudaMemcpy(states_prev, states, h_ags->count * sizeof(*states), cudaMemcpyDeviceToDevice);
         agent_sim<<<1 + h_ags->count/PER_BLOCK, PER_BLOCK>>>(states, (double)i*t_step,
             t_step, net, states_prev, ags.params, ags.routes, h_ags->count);
+        fwrite(states_host, h_ags->count * sizeof(*states), 1, f);
         cudaDeviceSynchronize();
     }
 

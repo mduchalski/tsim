@@ -14,12 +14,16 @@ int main(int argc, char *argv[])
     char *in_filename = "ic.bin", *out_filename = "res.bin";
     double t_step = 0.1, t_final = 10.0;
     backend_type backend = CPU;
+    bool verbose = false;
     char opt;
-    while((opt = getopt(argc, argv, "b:i:o:s:f:h")) != -1) {
+    while((opt = getopt(argc, argv, "hvb:i:o:s:f:")) != -1) {
         switch(opt) {
             case 'b':
-                if(strcmp(optarg, "cuda"))
+                if(strcmp(optarg, "cuda") == 0)
                     backend = CUDA;
+                break;
+            case 'v':
+                verbose = true;
                 break;
             case 's':
                 t_step = atof(optarg);
@@ -31,13 +35,14 @@ int main(int argc, char *argv[])
                 in_filename = strdup(optarg);
                 break;
             case 'o':
-                out_filename = strdup(optarg); // offset
+                out_filename = strdup(optarg);
                 break;
             case 'h':
-                printf("Usage: %s [-h] [-b BACKEND] [-i IN] [-o OUT] [-s STEP] [-f FINAL]\n\n"
+                printf("Usage: %s [-h] [-v] [-b BACKEND] [-i IN] [-o OUT] [-s STEP] [-f FINAL]\n\n"
                     "Optional parameters:\n"
                     "-h:         displays this message\n"
-                    "-b BACKEND: simulation backend (default: cpu)"
+                    "-v:         verbose mode"
+                    "-b BACKEND: simulation backend (default: cpu)\n"
                     "-i IN:      initial conditions filename (default: ic.bin)\n"
                     "-o OUT:     simulation output filename (default: res.bin)\n"
                     "-s STEP:    simulation step in seconds (default: 0.1)\n"
@@ -53,9 +58,13 @@ int main(int argc, char *argv[])
 
     switch(backend) {
         case CUDA:
+            if(verbose)
+                printf("Using CUDA backend\n");
             sim_gpu(out_filename, t_step, t_final, &net, &ags);
             break;
         default: // CPU
+            if(verbose)
+                printf("Using CPU backend\n");
             sim_cpu(out_filename, t_step, t_final, &net, &ags);
             break;
     }

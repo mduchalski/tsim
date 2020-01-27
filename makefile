@@ -7,6 +7,8 @@ BIN_NAME=tsim
 all: exec
 debug: CCFLAGS=-g
 debug: exec
+profile: CCFLAGS=-pg
+profile: exec
 
 exec: $(OBJ_DIR)/sim.o $(OBJ_DIR)/sim_cpu.o $(OBJ_DIR)/sim_gpu.o $(OBJ_DIR)/tsim.o $(OBJ_DIR)/types.o
 	$(CC) $(CCFLAGS) $(OBJ_DIR)/sim.o $(OBJ_DIR)/sim_cpu.o $(OBJ_DIR)/sim_gpu.o $(OBJ_DIR)/tsim.o $(OBJ_DIR)/types.o -o $(BIN_NAME) $(LIBS)

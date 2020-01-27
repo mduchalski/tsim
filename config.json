@@ -1,9 +1,9 @@
 {"config": {
     "network": {
         "generator": "grid",
-        "size": 10,
-        "unit_width": 300,
-        "unit_height": 300,
+        "size": 15,
+        "unit_width": 500,
+        "unit_height": 500,
         "params": []
     },
     "intersections": {
