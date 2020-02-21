@@ -72,8 +72,8 @@ void agent_sim(agent_state_type *states, const int i, const double t,
 void sim_cpu(const char* out_filename, const double t_step, const double t_final,
     const net_type *net, const agents_type *ags)
 {
-    agent_state_type *states = malloc(ags->count * sizeof(*states));
-    agent_state_type *states_prev = malloc(ags->count * sizeof(*states_prev));
+    agent_state_type *states      = (agent_state_type*)malloc(ags->count * sizeof(*states));
+    agent_state_type *states_prev = (agent_state_type*)malloc(ags->count * sizeof(*states_prev));
     memcpy(states, ags->states, ags->count * sizeof(*ags->states));
     FILE *f = fopen(out_filename, "wb");
 
