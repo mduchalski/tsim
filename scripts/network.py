@@ -74,7 +74,8 @@ class Net:
         ax.set_xlim(xy_min[0], xy_max[0])
         ax.set_ylim(xy_min[1], xy_max[1])
         ax.add_collection(segments)
-        return ax.plot(self.xy[:, 0], self.xy[:, 1], marker_style)
+
+        return segments.findobj()[0], ax.plot(self.xy[:, 0], self.xy[:, 1], marker_style)[0]
 
     def shortest_path(self, start, goal):
         """Calculates shortest path between two nodes using A* algorithm."""
