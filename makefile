@@ -12,11 +12,8 @@ no-cuda: exec
 debug: CCFLAGS=-g
 debug: exec
 
-exec: $(OBJ_DIR)/sim.o $(OBJ_DIR)/sim_cpu.o $(OBJ_DIR)/sim_gpu.o $(OBJ_DIR)/tsim.o $(OBJ_DIR)/types.o
-	$(CC) $(CCFLAGS) $(OBJ_DIR)/sim.o $(OBJ_DIR)/sim_cpu.o $(OBJ_DIR)/sim_gpu.o $(OBJ_DIR)/tsim.o $(OBJ_DIR)/types.o -o $(BIN_NAME) $(LIBS)
-
-$(OBJ_DIR)/sim.o: $(SRC_DIR)/sim.c $(SRC_DIR)/sim.h $(SRC_DIR)/sim_gpu.h
-	$(CC) $(CCFLAGS) $(SRC_DIR)/sim.c -o $(OBJ_DIR)/sim.o -c
+exec: $(OBJ_DIR)/sim_cpu.o $(OBJ_DIR)/sim_gpu.o $(OBJ_DIR)/tsim.o $(OBJ_DIR)/types.o
+	$(CC) $(CCFLAGS) $(OBJ_DIR)/sim_cpu.o $(OBJ_DIR)/sim_gpu.o $(OBJ_DIR)/tsim.o $(OBJ_DIR)/types.o -o $(BIN_NAME) $(LIBS)
 
 $(OBJ_DIR)/sim_cpu.o: $(SRC_DIR)/sim_cpu.c $(SRC_DIR)/sim_cpu.h
 	$(CC) $(CCFLAGS) $(SRC_DIR)/sim_cpu.c -o $(OBJ_DIR)/sim_cpu.o -c
