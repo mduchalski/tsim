@@ -1,7 +1,3 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef SIM_CPU_H
 #define SIM_CPU_H
 
@@ -9,8 +5,4 @@ extern "C" {
 
 void sim_cpu(const char*, const double, const double, const net_type*, const agents_type*);
 
-#endif
-
-#ifdef __cplusplus
-}
 #endif

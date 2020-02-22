@@ -1,7 +1,3 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef TYPES_H
 #define TYPES_H
 
@@ -59,8 +55,4 @@ bool agents_edge_cmp(const agent_state_type, const agent_state_type);
 void sort_agents(agent_state_type *ags, const int ags_n);
 void ic_fromfile(const char*, net_type*, agents_type*);
 
-#endif
-
-#ifdef __cplusplus
-}
 #endif
