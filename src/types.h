@@ -10,6 +10,12 @@ typedef enum {
 } _inter_type;
 
 typedef struct {
+    _inter_type type_id;
+    int params_start;
+} inter_type;
+
+typedef struct {
+    /* This struct organizes agent's time-invariant parameters */
     double v0;
     double s0;
     double T;
@@ -19,6 +25,8 @@ typedef struct {
 } agent_params_type;
 
 typedef struct {
+    /* This struct organizes agent's state - set of descriptors that change over
+     * time (uid is here for housekeeping) */
     int uid;
     double x;
     double v;
@@ -28,11 +36,13 @@ typedef struct {
 } agent_state_type;
 
 typedef struct {
-    _inter_type type_id;
-    int params_start;
-} inter_type;
-
-typedef struct {
+    /* This struct organizes a set of agents' complete definitions - states,
+     * parameters and routes and is used to store initial conditions
+     * states: agents' states, usually at t=0, agent_state_type struct array 
+     * params: agents' time-invariant parameters, agent_params_type struct array
+     * routes: array of all agents' route's nodes
+     * routes_len: size of routes array
+     * count: size of states and params arrays */
     agent_state_type* states;
     agent_params_type* params;
     int *routes;
@@ -41,6 +51,12 @@ typedef struct {
 } agents_type;
 
 typedef struct {
+    /* This struct organizes full definition of the road network
+     * weights: flattened matrix of edge weights (format analogous to an adjecancy matrix)
+     * inters: array of intersections 
+     * inters_params: array of intersections' parameters
+     * inters_params_len: size of inters_params_len array
+     * nodes_n: number of nodes in the network */
     double *weights;
     inter_type *inters;
     double *inters_params;

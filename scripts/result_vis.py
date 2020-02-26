@@ -1,4 +1,3 @@
-import matplotlib as mpl # temporary
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, TextBox
@@ -7,8 +6,6 @@ import argparse
 
 import network
 from _common import agent_type, get_agents_points, plot_agents, results_fromfile
-
-mpl.rcParams['figure.dpi'] = 150 # temporary
 
 class ResultIterator:
     def __init__(self, result, bplay_pause, bstop, bstep_prev, bstep_next):

@@ -7,6 +7,7 @@
 
 void dealloc_net(net_type *net)
 {
+    /* Frees memory allocated for a net_type struct */
     free(net->inters);
     net->inters = NULL;
     free(net->inters_params);
@@ -17,6 +18,7 @@ void dealloc_net(net_type *net)
 
 void dealloc_agents(agents_type *ags)
 {
+    /* Frees memory allocated for a agents_type struct */
     free(ags->states);
     ags->states = NULL;
     free(ags->params);
@@ -27,8 +29,8 @@ void dealloc_agents(agents_type *ags)
 
 bool agents_cmp(const agent_state_type a, const agent_state_type b)
 {   
-    // comparison function for lexicographical sorting of agent_state_type struct arrays
-    // with order (prev, next, x)
+    /* Comparison function for lexicographical sorting of agent_state_type
+     * struct arrays (order - prev, next, v) */
     if(a.prev != b.prev)
         return a.prev < b.prev;
     else if(a.next != b.next)
@@ -38,6 +40,8 @@ bool agents_cmp(const agent_state_type a, const agent_state_type b)
 
 bool agents_edge_cmp(const agent_state_type a, const agent_state_type b)
 {
+    /* Comparison function for binary search in agent_state_type struct arrays
+     * (key - edge, order - prev, next) */
     if(a.prev != b.prev)
         return a.prev < b.prev;
     else if(a.next != b.next)
@@ -46,6 +50,8 @@ bool agents_edge_cmp(const agent_state_type a, const agent_state_type b)
 }
 
 void sort_agents(agent_state_type *ags, const int ags_n) {
+    /* Sorts agent_state_type struct arrays lexicographically (see agents_cmp,
+     * order - prev, next, v) using insertion sort */
     int j;
     agent_state_type tmp;
 
@@ -59,6 +65,8 @@ void sort_agents(agent_state_type *ags, const int ags_n) {
 
 void ic_fromfile(const char* filename, net_type *net, agents_type *ags)
 {
+    /* Retrieves simulation initial conditions - agents and the network - from
+     * a binary file given its filename */
     FILE *f = fopen(filename, "rb");
 
     fread(&net->nodes_n, sizeof(net->nodes_n), 1, f);
